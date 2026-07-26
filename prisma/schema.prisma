@@ -1,9 +1,17 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  COMPANY_ADMIN
+  EDITOR
+  VIEWER
 }
 
 enum Status {
@@ -16,7 +24,35 @@ model Company {
   id        String   @id @default(uuid())
   name      String
   slug      String   @unique
+  email     String?
+  phone     String?
+  website   String?
+
+  status    Status   @default(ACTIVE)
+
+  users     User[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model User {
+  id           String   @id @default(uuid())
+
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  firstName    String
+  lastName     String
+
+  email        String   @unique
+  passwordHash String
+
+  role         UserRole @default(COMPANY_ADMIN)
+  status       Status   @default(ACTIVE)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([companyId])
 }
