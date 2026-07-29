@@ -45,7 +45,7 @@ export async function AppShell({ title, children }: { title: string; children: R
             <div className="flex h-10 min-w-52 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-400">
               <Search size={16} /> Search
             </div>
-            <button className="grid size-10 place-items-center rounded-md border border-slate-200 bg-white" aria-label="Notifications"><Bell size={17} /></button>
+            <Link href="/commerce?section=settings" className="grid size-10 place-items-center rounded-md border border-slate-200 bg-white" aria-label="Notifications"><Bell size={17} /></Link>
             <div className="grid size-10 place-items-center rounded-full bg-gradient-to-br from-sky-500 to-emerald-500 text-sm font-bold text-white">SS</div>
           </div>
           <nav className="flex gap-2 overflow-x-auto px-4 pb-3 lg:hidden">

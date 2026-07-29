@@ -3,6 +3,7 @@ import { checkoutSchema } from "./schemas";
 import { haversineDistanceKm, money } from "./utils";
 import { Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
+import { notifyOrderEvent, whatsappLink } from "./notifications";
 
 export async function createOrder(input: unknown) {
   const parsed = checkoutSchema.safeParse(input);
@@ -161,14 +162,14 @@ export async function createOrder(input: unknown) {
     if (promotion) {
       await tx.promotionUsage.create({ data: { promotionId: promotion.id, orderId: created.id, discount: discountAmount } });
     }
-    await tx.notificationEvent.create({
-      data: {
-        companyId: company.id,
-        orderId: created.id,
-        eventType: "ORDER_CREATED",
-        recipient: data.customer.mobile,
-        message: `Order ${created.orderNumber} was placed and is pending restaurant acceptance.`,
-      },
+    await notifyOrderEvent({
+      tx,
+      companyId: company.id,
+      orderId: created.id,
+      eventType: "ORDER_CREATED",
+      recipient: data.customer.mobile,
+      message: `Order ${created.orderNumber} was placed and is pending restaurant acceptance.`,
+      metadata: { provider: "development-log", whatsappFallbackUrl: whatsappLink(data.customer.mobile, `Your order ${created.orderNumber} has been placed.`) },
     });
     return created;
   });

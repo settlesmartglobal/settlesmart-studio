@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/core/database/prisma";
 import { formatMoney } from "@/modules/wave1/utils";
+import { RiderMobileActions } from "../../components/order-actions";
+import { whatsappLink } from "@/modules/wave1/notifications";
 
 export default async function RiderDeliveryPage({ params }: { params: Promise<{ secureAccessCode: string }> }) {
   const { secureAccessCode } = await params;
@@ -9,7 +11,7 @@ export default async function RiderDeliveryPage({ params }: { params: Promise<{ 
     include: {
       company: true,
       orders: {
-        where: { status: { in: ["RIDER_ASSIGNED", "PICKED_UP", "OUT_FOR_DELIVERY"] } },
+        where: { status: { in: ["RIDER_ASSIGNED", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"] } },
         include: { items: true },
         orderBy: { placedAt: "asc" },
         take: 1,
@@ -41,13 +43,11 @@ export default async function RiderDeliveryPage({ params }: { params: Promise<{ 
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2">
             <a href={`tel:${order.customerMobileSnapshot}`} className="rounded-md border border-slate-200 px-3 py-2 text-center text-sm font-semibold">Call</a>
-            <a href={`https://wa.me/${order.customerMobileSnapshot.replace(/\D/g, "")}`} className="rounded-md border border-slate-200 px-3 py-2 text-center text-sm font-semibold">WhatsApp</a>
+            <a href={whatsappLink(order.customerMobileSnapshot, `I am on the way with order ${order.orderNumber}.`)} className="rounded-md border border-slate-200 px-3 py-2 text-center text-sm font-semibold">WhatsApp</a>
             <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${address?.address ?? ""} ${address?.area ?? ""}`)}`} className="rounded-md border border-slate-200 px-3 py-2 text-center text-sm font-semibold">Map</a>
-            <span className="rounded-md border border-slate-200 px-3 py-2 text-center text-sm font-semibold">Payment</span>
+            <div className="px-3 py-2 text-center text-sm font-semibold text-slate-600">{order.paymentStatus}</div>
           </div>
-          <div className="mt-4 grid gap-2 text-sm">
-            {["PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"].map((status) => <form key={status} action={`/api/orders/${order.id}`} method="post"><button className="w-full rounded-md bg-slate-950 px-4 py-2 font-semibold text-white">{status.replaceAll("_", " ")}</button></form>)}
-          </div>
+          <RiderMobileActions orderId={order.id} status={order.status} totalAmount={Number(order.totalAmount)} />
         </section>}
       </div>
     </main>

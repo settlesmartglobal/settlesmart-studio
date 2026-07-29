@@ -90,6 +90,9 @@ export const orderStatusSchema = z.object({
   reason: optionalText(500),
   riderId: idSchema.optional().or(z.literal("")),
   paymentStatus: z.enum(["PENDING", "COLLECTED", "FAILED", "REFUNDED", "NOT_REQUIRED"]).optional(),
+  amountCollected: moneySchema.optional().or(z.literal("")),
+  paymentCollectedBy: optionalText(120),
+  paymentNotes: optionalText(500),
 });
 
 export const checkoutSchema = z.object({
