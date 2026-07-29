@@ -20,39 +20,663 @@ enum Status {
   ARCHIVED
 }
 
+enum BusinessType {
+  RESTAURANT
+  GROCERY
+  HOTEL
+  RECRUITMENT_AGENCY
+  MANPOWER_CONSULTANCY
+  HR_CONSULTANCY
+  CLINIC
+  RETAIL
+  EDUCATION
+  SERVICE_BUSINESS
+  OTHER
+}
+
+enum ApprovalStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+enum BrandAssetType {
+  LOGO
+  BUSINESS_CARD
+  POSTER
+  PAMPHLET
+  BROCHURE
+  MENU
+  PRODUCT_IMAGE
+  REFERENCE_IMAGE
+  REFERENCE_VIDEO
+  DOCUMENT
+}
+
+enum ExtractionStatus {
+  NOT_STARTED
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum OrderStatus {
+  NEW
+  ACCEPTED
+  PREPARING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  REJECTED
+}
+
+enum PaymentMethod {
+  CASH_ON_DELIVERY
+  CARD_ON_DELIVERY
+  PICKUP_PAYMENT
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  NOT_APPLICABLE
+}
+
+enum FulfilmentType {
+  DELIVERY
+  PICKUP
+}
+
+enum OrderSource {
+  CUSTOMER_PWA
+  MANUAL_WHATSAPP
+  MANUAL_PHONE
+  ADMIN
+}
+
+enum CampaignType {
+  RECRUITMENT
+  PRODUCT
+  MENU_ITEM
+  SERVICE
+  OFFER
+  EVENT
+  ANNOUNCEMENT
+  COMPANY_PROFILE
+}
+
+enum CampaignStatus {
+  DRAFT
+  READY_FOR_GENERATION
+  GENERATING
+  GENERATED
+  PENDING_APPROVAL
+  APPROVED
+  ACTIVE
+  FAILED
+  ARCHIVED
+}
+
+enum MediaAssetType {
+  IMAGE
+  POSTER
+  BANNER
+  REEL
+  VIDEO
+  LOGO
+  DOCUMENT
+}
+
+enum MediaCategory {
+  BRAND
+  RECRUITMENT
+  PRODUCT
+  MENU
+  SERVICE
+  OFFER
+  COMPANY
+  SOCIAL
+  ORDERING_APP
+}
+
+enum MediaSourceType {
+  UPLOADED
+  GENERATED
+  ENHANCED
+  IMPORTED
+}
+
+enum StudioOutputType {
+  TEXT
+  POSTER
+  STORYBOARD
+  VIDEO
+  EXPORT_PACKAGE
+}
+
+enum StudioJobType {
+  POSTER_RENDER
+  IMAGE_ENHANCE
+  IMAGE_RESIZE
+  VIDEO_ENHANCE
+  VIDEO_ASSEMBLE
+  PLATFORM_EXPORT
+}
+
+enum StudioJobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum MediaPlacementType {
+  ORDERING_HOMEPAGE_HERO
+  ORDERING_PROMOTIONAL_BANNER
+  ORDERING_CATEGORY_BANNER
+  ORDERING_PRODUCT_IMAGE
+  ORDERING_SPECIAL_OFFER
+  ORDERING_POPUP
+  ORDER_CONFIRMATION_PROMOTION
+  COMPANY_HOMEPAGE
+  COMPANY_SERVICE_SECTION
+  COMPANY_OFFER_SECTION
+  COMPANY_PROFILE
+  RECRUITMENT_HOMEPAGE_HIRING_BANNER
+  RECRUITMENT_OPEN_ROLES
+  RECRUITMENT_JOB_PAGE
+}
+
 model Company {
-  id        String   @id @default(uuid())
-  name      String
-  slug      String   @unique
-  email     String?
-  phone     String?
-  website   String?
+  id                 String       @id @default(uuid())
+  name               String
+  slug               String       @unique
+  businessType       BusinessType @default(OTHER)
+  industry           String?
+  description        String?
+  country            String?
+  city               String?
+  address            String?
+  latitude           Decimal?     @db.Decimal(10, 7)
+  longitude          Decimal?     @db.Decimal(10, 7)
+  phone              String?
+  whatsapp           String?
+  email              String?
+  website            String?
+  orderingSlug       String?      @unique
+  commerceEnabled    Boolean      @default(false)
+  studioEnabled      Boolean      @default(true)
+  recruitmentEnabled Boolean      @default(false)
 
-  status    Status   @default(ACTIVE)
+  status Status @default(ACTIVE)
 
-  users     User[]
+  users             User[]
+  brandProfile      BrandProfile?
+  brandAssets       BrandAsset[]
+  productCategories ProductCategory[]
+  products          Product[]
+  deliveryZones     DeliveryZone[]
+  operatingHours    OperatingHours[]
+  customers         Customer[]
+  orders            Order[]
+  campaigns         StudioCampaign[]
+  mediaAssets       MediaAsset[]
+  campaignInputs    CampaignInput[]
+  campaignOutputs   CampaignOutput[]
+  storyboards       Storyboard[]
+  processingJobs    MediaProcessingJob[]
+  mediaPlacements   MediaPlacement[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model User {
-  id           String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  companyId    String
-  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  firstName    String
-  lastName     String
+  firstName String
+  lastName  String
 
-  email        String   @unique
+  email        String @unique
   passwordHash String
 
-  role         UserRole @default(COMPANY_ADMIN)
-  status       Status   @default(ACTIVE)
+  role   UserRole @default(COMPANY_ADMIN)
+  status Status   @default(ACTIVE)
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([companyId])
+}
+
+model BrandProfile {
+  id                  String         @id @default(uuid())
+  companyId           String         @unique
+  company             Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tagline             String?
+  logoPath            String?
+  primaryColor        String         @default("#2563eb")
+  secondaryColor      String         @default("#14b8a6")
+  accentColor         String         @default("#f97316")
+  backgroundColor     String         @default("#ffffff")
+  headingFont         String         @default("Inter")
+  bodyFont            String         @default("Inter")
+  brandTone           String?
+  visualStyle         String?
+  preferredImageStyle String?
+  preferredVideoStyle String?
+  defaultCallToAction String?
+  instagramHandle     String?
+  facebookPage        String?
+  linkedinPage        String?
+  whatsappNumber      String?
+  approvalStatus      ApprovalStatus @default(DRAFT)
+  approvedAt          DateTime?
+  assets              BrandAsset[]
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+}
+
+model BrandAsset {
+  id               String           @id @default(uuid())
+  companyId        String
+  company          Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  brandProfileId   String?
+  brandProfile     BrandProfile?    @relation(fields: [brandProfileId], references: [id], onDelete: SetNull)
+  assetType        BrandAssetType
+  originalFilename String
+  storedFilename   String
+  filePath         String
+  mimeType         String
+  fileSize         Int
+  extractionStatus ExtractionStatus @default(NOT_STARTED)
+  approved         Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([companyId])
+  @@index([brandProfileId])
+}
+
+model ProductCategory {
+  id           String    @id @default(uuid())
+  companyId    String
+  company      Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name         String
+  slug         String
+  description  String?
+  imagePath    String?
+  displayOrder Int       @default(0)
+  active       Boolean   @default(true)
+  products     Product[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([companyId, slug])
+  @@index([companyId])
+}
+
+model Product {
+  id                 String           @id @default(uuid())
+  companyId          String
+  company            Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  categoryId         String?
+  category           ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  name               String
+  slug               String
+  shortDescription   String?
+  description        String?
+  regularPrice       Decimal          @db.Decimal(10, 2)
+  promotionalPrice   Decimal?         @db.Decimal(10, 2)
+  imagePath          String?
+  vegetarian         Boolean          @default(false)
+  available          Boolean          @default(true)
+  featured           Boolean          @default(false)
+  preparationMinutes Int?
+  displayOrder       Int              @default(0)
+  orderItems         OrderItem[]
+  mediaAssets        MediaAsset[]
+  campaigns          StudioCampaign[]
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@unique([companyId, slug])
+  @@index([companyId])
+  @@index([categoryId])
+}
+
+model DeliveryZone {
+  id                 String   @id @default(uuid())
+  companyId          String
+  company            Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name               String
+  radiusKm           Decimal  @db.Decimal(8, 2)
+  deliveryCharge     Decimal  @db.Decimal(10, 2)
+  minimumOrderAmount Decimal  @db.Decimal(10, 2)
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model OperatingHours {
+  id        String  @id @default(uuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  dayOfWeek Int
+  openTime  String
+  closeTime String
+  closed    Boolean @default(false)
+
+  @@unique([companyId, dayOfWeek])
+  @@index([companyId])
+}
+
+model Customer {
+  id               String   @id @default(uuid())
+  companyId        String
+  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name             String
+  mobile           String
+  email            String?
+  marketingConsent Boolean  @default(false)
+  orders           Order[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, mobile])
+}
+
+model Order {
+  id                          String               @id @default(uuid())
+  companyId                   String
+  company                     Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customerId                  String
+  customer                    Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  orderNumber                 String               @unique
+  status                      OrderStatus          @default(NEW)
+  paymentMethod               PaymentMethod
+  paymentStatus               PaymentStatus        @default(PENDING)
+  fulfilmentType              FulfilmentType
+  subtotal                    Decimal              @db.Decimal(10, 2)
+  deliveryCharge              Decimal              @db.Decimal(10, 2)
+  discountAmount              Decimal              @default(0) @db.Decimal(10, 2)
+  totalAmount                 Decimal              @db.Decimal(10, 2)
+  customerNameSnapshot        String
+  customerMobileSnapshot      String
+  deliveryAddressSnapshotJson Json?
+  customerLatitude            Decimal?             @db.Decimal(10, 7)
+  customerLongitude           Decimal?             @db.Decimal(10, 7)
+  specialInstructions         String?
+  source                      OrderSource          @default(CUSTOMER_PWA)
+  placedAt                    DateTime             @default(now())
+  acceptedAt                  DateTime?
+  preparingAt                 DateTime?
+  readyAt                     DateTime?
+  outForDeliveryAt            DateTime?
+  deliveredAt                 DateTime?
+  cancelledAt                 DateTime?
+  items                       OrderItem[]
+  statusHistory               OrderStatusHistory[]
+  createdAt                   DateTime             @default(now())
+  updatedAt                   DateTime             @updatedAt
+
+  @@index([companyId])
+  @@index([customerId])
+  @@index([status])
+}
+
+model OrderItem {
+  id                  String   @id @default(uuid())
+  orderId             String
+  order               Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId           String?
+  product             Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productNameSnapshot String
+  unitPrice           Decimal  @db.Decimal(10, 2)
+  quantity            Int
+  lineTotal           Decimal  @db.Decimal(10, 2)
+  selectedOptionsJson Json?
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model OrderStatusHistory {
+  id             String       @id @default(uuid())
+  orderId        String
+  order          Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  previousStatus OrderStatus?
+  newStatus      OrderStatus
+  note           String?
+  createdAt      DateTime     @default(now())
+
+  @@index([orderId])
+}
+
+model StudioCampaign {
+  id                    String               @id @default(uuid())
+  companyId             String
+  company               Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  productId             String?
+  product               Product?             @relation(fields: [productId], references: [id], onDelete: SetNull)
+  name                  String
+  campaignType          CampaignType
+  objective             String?
+  sourceType            String?
+  sourceReferenceId     String?
+  status                CampaignStatus       @default(DRAFT)
+  selectedPlatformsJson Json?
+  inputText             String?
+  structuredInputJson   Json?
+  inputApprovedAt       DateTime?
+  creativeBriefJson     Json?
+  startDate             DateTime?
+  endDate               DateTime?
+  mediaAssets           MediaAsset[]
+  inputs                CampaignInput[]
+  outputs               CampaignOutput[]
+  storyboards           Storyboard[]
+  processingJobs        MediaProcessingJob[]
+  placements            MediaPlacement[]
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  @@index([companyId])
+  @@index([productId])
+}
+
+model MediaAsset {
+  id               String               @id @default(uuid())
+  companyId        String
+  company          Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  campaignId       String?
+  campaign         StudioCampaign?      @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  productId        String?
+  product          Product?             @relation(fields: [productId], references: [id], onDelete: SetNull)
+  parentAssetId    String?
+  parentAsset      MediaAsset?          @relation("DerivedMedia", fields: [parentAssetId], references: [id], onDelete: SetNull)
+  derivedAssets    MediaAsset[]         @relation("DerivedMedia")
+  title            String
+  assetType        MediaAssetType
+  category         MediaCategory
+  sourceType       MediaSourceType      @default(UPLOADED)
+  originalFilename String
+  storedFilename   String
+  filePath         String
+  mimeType         String
+  fileSize         Int
+  platform         String?
+  width            Int?
+  height           Int?
+  durationSeconds  Int?
+  metadataJson     Json?
+  approvalStatus   ApprovalStatus       @default(DRAFT)
+  approvedAt       DateTime?
+  outputs          CampaignOutput[]
+  inputJobs        MediaProcessingJob[] @relation("InputMediaJob")
+  outputJobs       MediaProcessingJob[] @relation("OutputMediaJob")
+  placements       MediaPlacement[]
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@index([companyId])
+  @@index([campaignId])
+  @@index([productId])
+  @@index([parentAssetId])
+}
+
+model CampaignInput {
+  id                    String         @id @default(uuid())
+  companyId             String
+  company               Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  campaignId            String
+  campaign              StudioCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignType          CampaignType
+  sourceType            String
+  sourceReferenceId     String?
+  rawInput              String?
+  structuredDetailsJson Json
+  missingFieldsJson     Json?
+  approved              Boolean        @default(false)
+  approvedAt            DateTime?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  @@index([companyId])
+  @@index([campaignId])
+}
+
+model CampaignOutput {
+  id                 String           @id @default(uuid())
+  companyId          String
+  company            Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  campaignId         String
+  campaign           StudioCampaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  mediaAssetId       String?
+  mediaAsset         MediaAsset?      @relation(fields: [mediaAssetId], references: [id], onDelete: SetNull)
+  outputType         StudioOutputType
+  platform           String
+  headline           String?
+  subheadline        String?
+  bodyCaption        String?
+  cta                String?
+  hashtagsJson       Json?
+  altText            String?
+  reviewWarningsJson Json?
+  contentJson        Json?
+  status             ApprovalStatus   @default(DRAFT)
+  approvedAt         DateTime?
+  providerMode       String           @default("demo")
+  providerName       String?
+  runMetadataJson    Json?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([companyId])
+  @@index([campaignId])
+  @@index([mediaAssetId])
+}
+
+model Storyboard {
+  id             String            @id @default(uuid())
+  companyId      String
+  company        Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  campaignId     String
+  campaign       StudioCampaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  title          String
+  targetDuration String
+  status         ApprovalStatus    @default(DRAFT)
+  approvedAt     DateTime?
+  scenes         StoryboardScene[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([companyId])
+  @@index([campaignId])
+}
+
+model StoryboardScene {
+  id                   String     @id @default(uuid())
+  storyboardId         String
+  storyboard           Storyboard @relation(fields: [storyboardId], references: [id], onDelete: Cascade)
+  mediaAssetId         String?
+  sequenceNumber       Int
+  durationSeconds      Int
+  scenePurpose         String
+  headlineCaption      String
+  visualRecommendation String
+  transition           String?
+  voiceoverText        String?
+  musicMood            String?
+  cta                  String?
+  finalEndCard         Boolean    @default(false)
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  @@index([storyboardId])
+  @@index([mediaAssetId])
+}
+
+model MediaProcessingJob {
+  id                 String          @id @default(uuid())
+  companyId          String
+  company            Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  campaignId         String?
+  campaign           StudioCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  inputMediaAssetId  String?
+  inputMediaAsset    MediaAsset?     @relation("InputMediaJob", fields: [inputMediaAssetId], references: [id], onDelete: SetNull)
+  outputMediaAssetId String?
+  outputMediaAsset   MediaAsset?     @relation("OutputMediaJob", fields: [outputMediaAssetId], references: [id], onDelete: SetNull)
+  jobType            StudioJobType
+  status             StudioJobStatus @default(QUEUED)
+  progress           Int             @default(0)
+  configurationJson  Json?
+  errorMessage       String?
+  startedAt          DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@index([companyId])
+  @@index([campaignId])
+  @@index([inputMediaAssetId])
+  @@index([outputMediaAssetId])
+}
+
+model MediaPlacement {
+  id             String             @id @default(uuid())
+  companyId      String
+  company        Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  campaignId     String?
+  campaign       StudioCampaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  mediaAssetId   String
+  mediaAsset     MediaAsset         @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  productId      String?
+  placement      MediaPlacementType
+  linkedTargetId String?
+  cta            String?
+  destinationUrl String?
+  startDate      DateTime?
+  endDate        DateTime?
+  displayOrder   Int                @default(0)
+  active         Boolean            @default(false)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([companyId])
+  @@index([campaignId])
+  @@index([mediaAssetId])
+  @@index([productId])
 }

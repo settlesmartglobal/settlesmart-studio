@@ -44,3 +44,7 @@ next-env.d.ts
 
 # Prisma native engine binaries
 src/generated/prisma/*.dylib.node
+
+# Local uploaded media
+public/uploads/*
+!public/uploads/.gitkeep

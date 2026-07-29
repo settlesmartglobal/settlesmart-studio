@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:wave1": "node prisma/seed/wave1.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.5.7",

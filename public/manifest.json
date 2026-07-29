@@ -1,0 +1,21 @@
+{
+  "name": "SettleSmart Studio",
+  "short_name": "Studio",
+  "description": "AI-Powered Marketing & Brand Operations Platform",
+  "display": "standalone",
+  "start_url": "/",
+  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/globe.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/window.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

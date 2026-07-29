@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { CompanyService } from "../../../src/modules/company/company.service";
 import { createCompanySchema } from "../../../src/modules/company/company.schema";
+import { Prisma } from "@prisma/client";
 
 const service = new CompanyService();
 
@@ -22,7 +23,13 @@ export async function POST(req: Request) {
     );
   }
 
-  const company = await service.create(result.data);
-
-  return NextResponse.json(company, { status: 201 });
+  try {
+    const company = await service.create(result.data);
+    return NextResponse.json(company, { status: 201 });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json({ error: "Company slug or ordering slug already exists" }, { status: 409 });
+    }
+    return NextResponse.json({ error: "Unable to create company" }, { status: 500 });
+  }
 }

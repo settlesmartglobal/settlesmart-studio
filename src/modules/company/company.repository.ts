@@ -1,11 +1,8 @@
 import { prisma } from "@/core/database/prisma";
+import { Prisma } from "@prisma/client";
 
 export class CompanyRepository {
-  create(data: {
-    name: string;
-    slug: string;
-    email?: string;
-  }) {
+  create(data: Prisma.CompanyCreateInput) {
     return prisma.company.create({ data });
   }
 
@@ -21,5 +18,22 @@ export class CompanyRepository {
     return prisma.company.findUnique({
       where: { id },
     });
+  }
+
+  findBySlug(slug: string) {
+    return prisma.company.findFirst({
+      where: { OR: [{ slug }, { orderingSlug: slug }] },
+    });
+  }
+
+  update(id: string, data: Prisma.CompanyUpdateInput) {
+    return prisma.company.update({
+      where: { id },
+      data,
+    });
+  }
+
+  count() {
+    return prisma.company.count();
   }
 }
