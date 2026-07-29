@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/core/database/prisma";
 import { approvedMediaQuerySchema } from "@/modules/studio/schemas";
+import { normalizePublicAssetPath } from "@/modules/wave1/assets";
 
 export async function GET(req: Request) {
   const params = new URL(req.url).searchParams;
@@ -30,8 +31,8 @@ export async function GET(req: Request) {
     description: asset.description,
     mediaType: asset.assetType,
     platform: asset.platform,
-    fileUrl: asset.filePath,
-    thumbnailUrl: asset.filePath,
+    fileUrl: normalizePublicAssetPath(asset.filePath),
+    thumbnailUrl: normalizePublicAssetPath(asset.filePath),
     width: asset.width,
     height: asset.height,
     duration: asset.durationSeconds,

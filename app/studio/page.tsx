@@ -3,6 +3,8 @@ import { prisma } from "@/core/database/prisma";
 import { CampaignForm, UploadForm } from "../components/forms";
 import { MediaApprovalActions, StudioWizard, UseInBusinessForm } from "../components/studio-actions";
 import { BusinessProfileWizard } from "../components/business-profile-wizard";
+import { AssetImage } from "../components/asset-image";
+import { normalizePublicAssetPath } from "@/modules/wave1/assets";
 
 const sections = ["overview", "brand", "create", "campaigns", "media", "processing", "templates", "settings"] as const;
 const sectionLabels: Record<(typeof sections)[number], string> = {
@@ -108,7 +110,7 @@ function EmptyStudio() {
 
 function MediaGrid({ media }: { media: Awaited<ReturnType<typeof getWorkspaceData>>["mediaAssets"] }) {
   if (media.length === 0) return <p className="text-sm text-slate-500">No media yet.</p>;
-  return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{media.map((asset) => <article key={asset.id} className="rounded-lg border border-slate-200 bg-white p-4"><div className="font-semibold">{asset.title}</div><p className="mt-1 text-xs text-slate-500">{asset.assetType} · {asset.sourceType} · {asset.approvalStatus} · {asset.usageType}</p>{asset.mimeType.startsWith("image/") && <img src={asset.filePath} alt={asset.title} className="mt-3 aspect-video w-full rounded-md object-cover" />}{asset.mimeType.startsWith("video/") && <video src={asset.filePath} controls className="mt-3 aspect-video w-full rounded-md" />}<div className="mt-3 flex flex-wrap gap-2 text-xs"><a href={asset.filePath} download className="rounded bg-slate-100 px-2 py-1">Download</a><span className="rounded bg-slate-100 px-2 py-1">Duplicate</span><span className="rounded bg-slate-100 px-2 py-1">Placements {asset.placements?.length ?? 0}</span></div><MediaApprovalActions assetId={asset.id} /></article>)}</div>;
+  return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{media.map((asset) => <article key={asset.id} className="rounded-lg border border-slate-200 bg-white p-4"><div className="font-semibold">{asset.title}</div><p className="mt-1 text-xs text-slate-500">{asset.assetType} · {asset.sourceType} · {asset.approvalStatus} · {asset.usageType}</p>{asset.mimeType.startsWith("image/") && <AssetImage src={asset.filePath} alt={asset.title} className="mt-3 aspect-video w-full rounded-md object-cover" />}{asset.mimeType.startsWith("video/") && <video src={normalizePublicAssetPath(asset.filePath)} controls className="mt-3 aspect-video w-full rounded-md" />}<div className="mt-3 flex flex-wrap gap-2 text-xs"><a href={normalizePublicAssetPath(asset.filePath)} download className="rounded bg-slate-100 px-2 py-1">Download</a><span className="rounded bg-slate-100 px-2 py-1">Duplicate</span><span className="rounded bg-slate-100 px-2 py-1">Placements {asset.placements?.length ?? 0}</span></div><MediaApprovalActions assetId={asset.id} /></article>)}</div>;
 }
 
 function TemplateGrid({ templates }: { templates: Awaited<ReturnType<typeof getWorkspaceData>>["templates"] }) {

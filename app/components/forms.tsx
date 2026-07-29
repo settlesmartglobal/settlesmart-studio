@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 
 type Company = { id: string; name: string; slug: string; orderingSlug?: string | null; commerceEnabled?: boolean; studioEnabled?: boolean };
@@ -95,7 +95,11 @@ export function OrderStatusForm({ orderId, status }: { orderId: string; status: 
 
 export function QrCodeBox({ url }: { url: string }) {
   const [qr, setQr] = useState("");
-  useMemo(() => { QRCode.toDataURL(url).then(setQr).catch(() => setQr("")); }, [url]);
+  useEffect(() => {
+    let mounted = true;
+    QRCode.toDataURL(url).then((value) => { if (mounted) setQr(value); }).catch(() => { if (mounted) setQr(""); });
+    return () => { mounted = false; };
+  }, [url]);
   return <div className="space-y-3">{qr && <img src={qr} alt="Ordering QR code" className="size-40 rounded-md border border-slate-200 bg-white p-2" />}<div className="break-all text-sm text-slate-600">{url}</div>{qr && <a href={qr} download="ordering-qr.png" className="inline-flex rounded-md bg-slate-950 px-3 py-2 text-sm font-semibold text-white">Download QR</a>}</div>;
 }
 

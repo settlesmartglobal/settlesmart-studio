@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { BriefcaseBusiness, Building2, Camera, CheckCircle2, Globe2, MessageCircle, Palette, Sparkles, Upload, WandSparkles } from "lucide-react";
+import { AssetImage } from "./asset-image";
 
 type Company = {
   id?: string;
@@ -230,7 +231,7 @@ function ColorField({ label, name, value }: { label: string; name: string; value
 }
 
 function LogoField({ label, name, value, tone }: { label: string; name: string; value: string; tone: "light" | "dark" }) {
-  return <label className="grid gap-3 rounded-lg border border-dashed border-slate-300 p-4 text-sm font-medium"><span>{label}</span><div className={`grid h-24 place-items-center rounded-lg ${tone === "dark" ? "bg-slate-950 text-white" : "bg-white text-slate-500"} border border-slate-200`}>{value ? <img src={value} alt="" className="max-h-16 max-w-40" /> : <span>Upload required</span>}</div><input name={name} defaultValue={value} placeholder="Paste uploaded asset URL after upload" className="rounded-md border border-slate-200 px-3 py-2 text-sm" /><div className="flex gap-2 text-xs text-slate-500"><span>PNG</span><span>SVG</span><span>WEBP</span></div></label>;
+  return <label className="grid gap-3 rounded-lg border border-dashed border-slate-300 p-4 text-sm font-medium"><span>{label}</span><div className={`grid h-24 place-items-center rounded-lg ${tone === "dark" ? "bg-slate-950 text-white" : "bg-white text-slate-500"} border border-slate-200`}>{value ? <AssetImage src={value} alt={label} className="max-h-16 max-w-40 object-contain" /> : <span>Upload required</span>}</div><input name={name} defaultValue={value} placeholder="Paste uploaded asset URL after upload" className="rounded-md border border-slate-200 px-3 py-2 text-sm" /><div className="flex gap-2 text-xs text-slate-500"><span>PNG</span><span>SVG</span><span>WEBP</span></div></label>;
 }
 
 function SocialField({ icon, label, name, value }: { icon: React.ReactNode; label: string; name: string; value: string }) {
