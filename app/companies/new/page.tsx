@@ -1,6 +1,5 @@
-import { AppShell, Panel } from "../../components/shell";
-import { CompanyForm } from "../../components/forms";
+import { redirect } from "next/navigation";
 
-export default function NewCompanyPage() {
-  return <AppShell title="Create Company"><Panel><CompanyForm /></Panel></AppShell>;
+export default function NewCompanyRedirect() {
+  redirect("/studio?section=brand");
 }

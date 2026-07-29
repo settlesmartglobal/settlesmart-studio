@@ -11,6 +11,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     data: {
       approvalStatus: result.data.approvalStatus,
       approvedAt: result.data.approvalStatus === "APPROVED" ? new Date() : null,
+      approvedBy: result.data.approvalStatus === "APPROVED" ? result.data.approvedBy || "single-admin" : null,
+      approvalNotes: result.data.approvalNotes || undefined,
+      approvedForExternalUse: result.data.approvalStatus === "APPROVED",
+      usageType: result.data.usageType,
     },
   });
   return NextResponse.json(asset);

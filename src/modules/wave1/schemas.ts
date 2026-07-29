@@ -10,17 +10,25 @@ export const brandProfileSchema = z.object({
   companyId: idSchema,
   tagline: optionalText(180),
   logoPath: optionalText(500),
+  secondaryLogoPath: optionalText(500),
+  lightLogoPath: optionalText(500),
+  darkLogoPath: optionalText(500),
+  faviconPath: optionalText(500),
   primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#2563eb"),
   secondaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#14b8a6"),
   accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#f97316"),
   backgroundColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#ffffff"),
+  textColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#111827"),
   headingFont: z.string().max(80).default("Inter"),
   bodyFont: z.string().max(80).default("Inter"),
   brandTone: optionalText(120),
+  approvedKeywordsJson: z.array(z.string().max(80)).default([]).optional(),
+  restrictedWordsJson: z.array(z.string().max(80)).default([]).optional(),
   visualStyle: optionalText(120),
   preferredImageStyle: optionalText(120),
   preferredVideoStyle: optionalText(120),
   defaultCallToAction: optionalText(120),
+  ctaStyle: optionalText(120),
   instagramHandle: optionalText(120),
   facebookPage: optionalText(200),
   linkedinPage: optionalText(200),
@@ -77,8 +85,11 @@ export const operatingHoursSchema = z.object({
 });
 
 export const orderStatusSchema = z.object({
-  status: z.enum(["NEW", "ACCEPTED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "REJECTED"]),
+  status: z.enum(["PENDING", "ACCEPTED", "REJECTED", "PREPARING", "READY", "RIDER_ASSIGNED", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED", "COMPLETED", "CANCELLED"]),
   note: optionalText(500),
+  reason: optionalText(500),
+  riderId: idSchema.optional().or(z.literal("")),
+  paymentStatus: z.enum(["PENDING", "COLLECTED", "FAILED", "REFUNDED", "NOT_REQUIRED"]).optional(),
 });
 
 export const checkoutSchema = z.object({
@@ -100,9 +111,17 @@ export const checkoutSchema = z.object({
     deliveryInstructions: optionalText(500),
   }),
   fulfilmentType: z.enum(["DELIVERY", "PICKUP"]),
-  paymentMethod: z.enum(["CASH_ON_DELIVERY", "CARD_ON_DELIVERY", "PICKUP_PAYMENT"]),
+  paymentMethod: z.enum(["CASH_ON_DELIVERY", "CARD_ON_DELIVERY", "CASH_ON_PICKUP", "CARD_ON_PICKUP", "PICKUP_PAYMENT"]),
+  promotionCode: optionalText(40),
+  idempotencyKey: z.string().min(8).max(120).optional(),
   specialInstructions: optionalText(500),
-  items: z.array(z.object({ productId: idSchema, quantity: z.coerce.number().int().min(1).max(99) })).min(1),
+  items: z.array(z.object({
+    productId: idSchema,
+    quantity: z.coerce.number().int().min(1).max(99),
+    variantId: idSchema.optional().or(z.literal("")),
+    addOnIds: z.array(idSchema).default([]).optional(),
+    instructions: optionalText(300),
+  })).min(1),
   source: z.enum(["CUSTOMER_PWA", "MANUAL_WHATSAPP", "MANUAL_PHONE", "ADMIN"]).default("CUSTOMER_PWA"),
 });
 
@@ -118,4 +137,7 @@ export const campaignSchema = z.object({
 
 export const mediaStatusSchema = z.object({
   approvalStatus: z.enum(["DRAFT", "PENDING_REVIEW", "APPROVED", "REJECTED", "ARCHIVED"]),
+  approvedBy: optionalText(120),
+  approvalNotes: optionalText(500),
+  usageType: z.enum(["COMMERCE_HOMEPAGE_BANNER", "COMMERCE_PRODUCT_IMAGE", "COMMERCE_CATEGORY_BANNER", "COMMERCE_OFFER_BANNER", "COMMERCE_ORDER_CONFIRMATION_PROMOTION", "COMMERCE_WHATSAPP_PROMOTION", "GENERAL_MARKETING"]).default("GENERAL_MARKETING").optional(),
 });

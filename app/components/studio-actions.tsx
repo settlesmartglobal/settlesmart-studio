@@ -54,3 +54,19 @@ export function UseInBusinessForm({ media, campaigns }: { media: Media[]; campai
   const [error, setError] = useState("");
   return <form className="grid gap-3" onSubmit={async (event) => { event.preventDefault(); const data = Object.fromEntries(new FormData(event.currentTarget)); const asset = media.find((item) => item.id === data.mediaAssetId); try { await post("/api/studio/placements", { ...data, companyId: asset?.companyId, active: true }); setMessage("Media placed in business."); setError(""); } catch (err) { setError(err instanceof Error ? err.message : "Placement failed"); setMessage(""); } }}><select name="mediaAssetId" className="rounded-md border border-slate-200 px-3 py-2">{media.map((m) => <option key={m.id} value={m.id}>{m.title} · {m.approvalStatus}</option>)}</select><select name="campaignId" className="rounded-md border border-slate-200 px-3 py-2"><option value="">No campaign</option>{campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select><select name="placement" className="rounded-md border border-slate-200 px-3 py-2"><option>ORDERING_HOMEPAGE_HERO</option><option>ORDERING_PROMOTIONAL_BANNER</option><option>ORDERING_PRODUCT_IMAGE</option><option>ORDERING_SPECIAL_OFFER</option><option>COMPANY_PROFILE</option><option>RECRUITMENT_JOB_PAGE</option></select><input name="cta" placeholder="CTA" className="rounded-md border border-slate-200 px-3 py-2" /><input name="destinationUrl" placeholder="Destination URL" className="rounded-md border border-slate-200 px-3 py-2" /><button className="rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white">Use in Business</button>{message && <p className="text-sm text-emerald-700">{message}</p>}{error && <p className="text-sm text-red-600">{error}</p>}</form>;
 }
+
+export function MediaApprovalActions({ assetId }: { assetId: string }) {
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  async function update(approvalStatus: string) {
+    try {
+      await post(`/api/media-library/${assetId}`, { approvalStatus, approvedBy: "single-admin", approvalNotes: approvalStatus === "APPROVED" ? "Approved inside Studio workspace" : "", usageType: "GENERAL_MARKETING" }, "PATCH");
+      setMessage(approvalStatus);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Update failed");
+      setMessage("");
+    }
+  }
+  return <div className="mt-3 flex flex-wrap items-center gap-2 text-xs"><button type="button" onClick={() => update("DRAFT")} className="rounded bg-slate-100 px-2 py-1">Save Draft</button><button type="button" onClick={() => update("PENDING_REVIEW")} className="rounded bg-slate-100 px-2 py-1">Submit for Review</button><button type="button" onClick={() => update("APPROVED")} className="rounded bg-emerald-100 px-2 py-1 text-emerald-800">Approve</button><button type="button" onClick={() => update("REJECTED")} className="rounded bg-red-100 px-2 py-1 text-red-800">Reject</button><button type="button" onClick={() => update("ARCHIVED")} className="rounded bg-slate-100 px-2 py-1">Archive</button>{message && <span className="text-emerald-700">Saved: {message}</span>}{error && <span className="text-red-600">{error}</span>}</div>;
+}

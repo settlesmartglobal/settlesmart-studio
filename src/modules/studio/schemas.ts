@@ -71,3 +71,11 @@ export const placementSchema = z.object({
 export const exportSchema = campaignIdSchema.extend({
   platforms: z.array(platformSchema).min(1),
 });
+
+export const approvedMediaQuerySchema = z.object({
+  companyId: z.string().uuid().optional(),
+  campaignId: z.string().uuid().optional(),
+  mediaType: z.enum(["IMAGE", "POSTER", "BANNER", "REEL", "VIDEO", "LOGO", "DOCUMENT"]).optional(),
+  platform: z.string().max(80).optional(),
+  usageType: z.enum(["COMMERCE_HOMEPAGE_BANNER", "COMMERCE_PRODUCT_IMAGE", "COMMERCE_CATEGORY_BANNER", "COMMERCE_OFFER_BANNER", "COMMERCE_ORDER_CONFIRMATION_PROMOTION", "COMMERCE_WHATSAPP_PROMOTION", "GENERAL_MARKETING"]).optional(),
+});

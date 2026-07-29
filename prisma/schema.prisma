@@ -63,27 +63,34 @@ enum ExtractionStatus {
 }
 
 enum OrderStatus {
-  NEW
+  PENDING
   ACCEPTED
+  REJECTED
   PREPARING
   READY
+  RIDER_ASSIGNED
+  PICKED_UP
   OUT_FOR_DELIVERY
   DELIVERED
+  COMPLETED
   CANCELLED
-  REJECTED
 }
 
 enum PaymentMethod {
   CASH_ON_DELIVERY
   CARD_ON_DELIVERY
+  CASH_ON_PICKUP
+  CARD_ON_PICKUP
   PICKUP_PAYMENT
 }
 
 enum PaymentStatus {
   PENDING
+  COLLECTED
   PAID
   FAILED
   REFUNDED
+  NOT_REQUIRED
   NOT_APPLICABLE
 }
 
@@ -97,6 +104,31 @@ enum OrderSource {
   MANUAL_WHATSAPP
   MANUAL_PHONE
   ADMIN
+}
+
+enum RiderAvailabilityStatus {
+  AVAILABLE
+  ASSIGNED
+  OFFLINE
+}
+
+enum PromotionType {
+  FIXED_AMOUNT
+  PERCENTAGE
+  FREE_DELIVERY
+}
+
+enum NotificationEventType {
+  ORDER_CREATED
+  ORDER_ACCEPTED
+  ORDER_REJECTED
+  ORDER_PREPARING
+  ORDER_READY
+  RIDER_ASSIGNED
+  ORDER_PICKED_UP
+  ORDER_OUT_FOR_DELIVERY
+  ORDER_DELIVERED
+  ORDER_CANCELLED
 }
 
 enum CampaignType {
@@ -193,48 +225,149 @@ enum MediaPlacementType {
   RECRUITMENT_JOB_PAGE
 }
 
+enum StudioMediaUsageType {
+  COMMERCE_HOMEPAGE_BANNER
+  COMMERCE_PRODUCT_IMAGE
+  COMMERCE_CATEGORY_BANNER
+  COMMERCE_OFFER_BANNER
+  COMMERCE_ORDER_CONFIRMATION_PROMOTION
+  COMMERCE_WHATSAPP_PROMOTION
+  GENERAL_MARKETING
+}
+
 model Company {
-  id                 String       @id @default(uuid())
-  name               String
-  slug               String       @unique
-  businessType       BusinessType @default(OTHER)
-  industry           String?
-  description        String?
-  country            String?
-  city               String?
-  address            String?
-  latitude           Decimal?     @db.Decimal(10, 7)
-  longitude          Decimal?     @db.Decimal(10, 7)
-  phone              String?
-  whatsapp           String?
-  email              String?
-  website            String?
-  orderingSlug       String?      @unique
-  commerceEnabled    Boolean      @default(false)
-  studioEnabled      Boolean      @default(true)
-  recruitmentEnabled Boolean      @default(false)
+  id                   String       @id @default(uuid())
+  name                 String
+  slug                 String       @unique
+  businessType         BusinessType @default(OTHER)
+  industry             String?
+  description          String?
+  targetAudience       String?
+  productsSummary      String?
+  brandPersonality     String?
+  preferredLanguage    String?
+  defaultPlatformsJson Json?
+  country              String?
+  city                 String?
+  address              String?
+  latitude             Decimal?     @db.Decimal(10, 7)
+  longitude            Decimal?     @db.Decimal(10, 7)
+  phone                String?
+  whatsapp             String?
+  email                String?
+  website              String?
+  orderingSlug         String?      @unique
+  commerceEnabled      Boolean      @default(false)
+  studioEnabled        Boolean      @default(true)
+  recruitmentEnabled   Boolean      @default(false)
 
   status Status @default(ACTIVE)
 
-  users             User[]
-  brandProfile      BrandProfile?
-  brandAssets       BrandAsset[]
-  productCategories ProductCategory[]
-  products          Product[]
-  deliveryZones     DeliveryZone[]
-  operatingHours    OperatingHours[]
-  customers         Customer[]
-  orders            Order[]
-  campaigns         StudioCampaign[]
-  mediaAssets       MediaAsset[]
-  campaignInputs    CampaignInput[]
-  campaignOutputs   CampaignOutput[]
-  storyboards       Storyboard[]
-  processingJobs    MediaProcessingJob[]
-  mediaPlacements   MediaPlacement[]
+  users              User[]
+  brandProfile       BrandProfile?
+  brandAssets        BrandAsset[]
+  productCategories  ProductCategory[]
+  products           Product[]
+  deliveryZones      DeliveryZone[]
+  operatingHours     OperatingHours[]
+  commerceSettings   CommerceBusinessSettings?
+  branches           Branch[]
+  customers          Customer[]
+  orders             Order[]
+  riders             Rider[]
+  promotions         Promotion[]
+  notificationEvents NotificationEvent[]
+  campaigns          StudioCampaign[]
+  mediaAssets        MediaAsset[]
+  campaignInputs     CampaignInput[]
+  campaignOutputs    CampaignOutput[]
+  storyboards        Storyboard[]
+  processingJobs     MediaProcessingJob[]
+  mediaPlacements    MediaPlacement[]
+  studioSettings     StudioSettings?
+  studioTemplates    StudioTemplate[]
+  studioActivities   StudioActivity[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model CommerceBusinessSettings {
+  id                      String   @id @default(uuid())
+  companyId               String   @unique
+  company                 Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  displayName             String
+  description             String?
+  cuisinesJson            Json?
+  currency                String   @default("AED")
+  timezone                String   @default("Asia/Dubai")
+  taxPercentage           Decimal  @default(5) @db.Decimal(5, 2)
+  minimumOrderAmount      Decimal  @default(0) @db.Decimal(10, 2)
+  deliveryCharge          Decimal  @default(0) @db.Decimal(10, 2)
+  freeDeliveryThreshold   Decimal? @db.Decimal(10, 2)
+  preparationMinutes      Int      @default(30)
+  deliveryRadiusKm        Decimal  @default(5) @db.Decimal(8, 2)
+  deliveryEnabled         Boolean  @default(true)
+  pickupEnabled           Boolean  @default(true)
+  cashPaymentEnabled      Boolean  @default(true)
+  cardOnDeliveryEnabled   Boolean  @default(true)
+  onlinePaymentEnabled    Boolean  @default(false)
+  acceptingOrders         Boolean  @default(true)
+  temporaryClosureMessage String?
+  logoMediaAssetId        String?
+  coverMediaAssetId       String?
+  logoPath                String?
+  coverImagePath          String?
+  terms                   String?
+  cancellationPolicy      String?
+  demoBusiness            Boolean  @default(false)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+model Branch {
+  id                    String                 @id @default(uuid())
+  companyId             String
+  company               Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name                  String
+  code                  String
+  address               String?
+  city                  String?
+  phone                 String?
+  whatsapp              String?
+  email                 String?
+  latitude              Decimal?               @db.Decimal(10, 7)
+  longitude             Decimal?               @db.Decimal(10, 7)
+  deliveryRadiusKm      Decimal                @default(5) @db.Decimal(8, 2)
+  minimumOrderAmount    Decimal                @default(0) @db.Decimal(10, 2)
+  deliveryFee           Decimal                @default(0) @db.Decimal(10, 2)
+  freeDeliveryThreshold Decimal?               @db.Decimal(10, 2)
+  preparationMinutes    Int                    @default(30)
+  active                Boolean                @default(true)
+  pickupEnabled         Boolean                @default(true)
+  deliveryEnabled       Boolean                @default(true)
+  temporarilyClosed     Boolean                @default(false)
+  closureReason         String?
+  hours                 BranchOperatingHours[]
+  orders                Order[]
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  @@unique([companyId, code])
+  @@index([companyId])
+}
+
+model BranchOperatingHours {
+  id        String  @id @default(uuid())
+  branchId  String
+  branch    Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  dayOfWeek Int
+  openTime  String
+  closeTime String
+  closed    Boolean @default(false)
+
+  @@unique([branchId, dayOfWeek])
+  @@index([branchId])
 }
 
 model User {
@@ -259,31 +392,39 @@ model User {
 }
 
 model BrandProfile {
-  id                  String         @id @default(uuid())
-  companyId           String         @unique
-  company             Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  tagline             String?
-  logoPath            String?
-  primaryColor        String         @default("#2563eb")
-  secondaryColor      String         @default("#14b8a6")
-  accentColor         String         @default("#f97316")
-  backgroundColor     String         @default("#ffffff")
-  headingFont         String         @default("Inter")
-  bodyFont            String         @default("Inter")
-  brandTone           String?
-  visualStyle         String?
-  preferredImageStyle String?
-  preferredVideoStyle String?
-  defaultCallToAction String?
-  instagramHandle     String?
-  facebookPage        String?
-  linkedinPage        String?
-  whatsappNumber      String?
-  approvalStatus      ApprovalStatus @default(DRAFT)
-  approvedAt          DateTime?
-  assets              BrandAsset[]
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
+  id                   String         @id @default(uuid())
+  companyId            String         @unique
+  company              Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tagline              String?
+  logoPath             String?
+  secondaryLogoPath    String?
+  lightLogoPath        String?
+  darkLogoPath         String?
+  faviconPath          String?
+  primaryColor         String         @default("#2563eb")
+  secondaryColor       String         @default("#14b8a6")
+  accentColor          String         @default("#f97316")
+  backgroundColor      String         @default("#ffffff")
+  textColor            String         @default("#111827")
+  headingFont          String         @default("Inter")
+  bodyFont             String         @default("Inter")
+  brandTone            String?
+  approvedKeywordsJson Json?
+  restrictedWordsJson  Json?
+  visualStyle          String?
+  preferredImageStyle  String?
+  preferredVideoStyle  String?
+  defaultCallToAction  String?
+  ctaStyle             String?
+  instagramHandle      String?
+  facebookPage         String?
+  linkedinPage         String?
+  whatsappNumber       String?
+  approvalStatus       ApprovalStatus @default(DRAFT)
+  approvedAt           DateTime?
+  assets               BrandAsset[]
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
 }
 
 model BrandAsset {
@@ -308,50 +449,114 @@ model BrandAsset {
 }
 
 model ProductCategory {
-  id           String    @id @default(uuid())
-  companyId    String
-  company      Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name         String
-  slug         String
-  description  String?
-  imagePath    String?
-  displayOrder Int       @default(0)
-  active       Boolean   @default(true)
-  products     Product[]
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id             String    @id @default(uuid())
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name           String
+  slug           String
+  description    String?
+  imagePath      String?
+  displayOrder   Int       @default(0)
+  active         Boolean   @default(true)
+  availableFrom  String?
+  availableUntil String?
+  products       Product[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@unique([companyId, slug])
   @@index([companyId])
 }
 
 model Product {
-  id                 String           @id @default(uuid())
+  id                 String              @id @default(uuid())
   companyId          String
-  company            Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company            Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
   categoryId         String?
-  category           ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  category           ProductCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   name               String
   slug               String
   shortDescription   String?
   description        String?
-  regularPrice       Decimal          @db.Decimal(10, 2)
-  promotionalPrice   Decimal?         @db.Decimal(10, 2)
+  regularPrice       Decimal             @db.Decimal(10, 2)
+  promotionalPrice   Decimal?            @db.Decimal(10, 2)
   imagePath          String?
-  vegetarian         Boolean          @default(false)
-  available          Boolean          @default(true)
-  featured           Boolean          @default(false)
+  vegetarian         Boolean             @default(false)
+  spicy              Boolean             @default(false)
+  bestseller         Boolean             @default(false)
+  inStock            Boolean             @default(true)
+  sku                String?
+  taxable            Boolean             @default(true)
+  studioMediaAssetId String?
+  available          Boolean             @default(true)
+  featured           Boolean             @default(false)
   preparationMinutes Int?
-  displayOrder       Int              @default(0)
+  displayOrder       Int                 @default(0)
   orderItems         OrderItem[]
   mediaAssets        MediaAsset[]
   campaigns          StudioCampaign[]
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  variants           ProductVariant[]
+  addOnGroups        ProductAddOnGroup[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
   @@unique([companyId, slug])
   @@index([companyId])
   @@index([categoryId])
+}
+
+model ProductVariant {
+  id           String  @id @default(uuid())
+  productId    String
+  product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name         String
+  priceDelta   Decimal @default(0) @db.Decimal(10, 2)
+  active       Boolean @default(true)
+  displayOrder Int     @default(0)
+
+  @@unique([productId, name])
+  @@index([productId])
+}
+
+model AddOnGroup {
+  id                String              @id @default(uuid())
+  companyId         String
+  name              String
+  required          Boolean             @default(false)
+  minSelections     Int                 @default(0)
+  maxSelections     Int                 @default(1)
+  multipleSelection Boolean             @default(false)
+  active            Boolean             @default(true)
+  displayOrder      Int                 @default(0)
+  addOns            AddOn[]
+  products          ProductAddOnGroup[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@unique([companyId, name])
+  @@index([companyId])
+}
+
+model AddOn {
+  id           String     @id @default(uuid())
+  groupId      String
+  group        AddOnGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name         String
+  price        Decimal    @default(0) @db.Decimal(10, 2)
+  active       Boolean    @default(true)
+  displayOrder Int        @default(0)
+
+  @@unique([groupId, name])
+  @@index([groupId])
+}
+
+model ProductAddOnGroup {
+  productId String
+  groupId   String
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  group     AddOnGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([productId, groupId])
 }
 
 model DeliveryZone {
@@ -383,19 +588,39 @@ model OperatingHours {
 }
 
 model Customer {
-  id               String   @id @default(uuid())
+  id               String            @id @default(uuid())
   companyId        String
-  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
   name             String
   mobile           String
   email            String?
-  marketingConsent Boolean  @default(false)
+  marketingConsent Boolean           @default(false)
   orders           Order[]
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  addresses        CustomerAddress[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
+  @@unique([companyId, mobile])
   @@index([companyId])
-  @@index([companyId, mobile])
+}
+
+model CustomerAddress {
+  id          String   @id @default(uuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  label       String?
+  addressLine String
+  building    String?
+  apartment   String?
+  area        String?
+  landmark    String?
+  city        String?
+  latitude    Decimal? @db.Decimal(10, 7)
+  longitude   Decimal? @db.Decimal(10, 7)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([customerId])
 }
 
 model Order {
@@ -404,15 +629,26 @@ model Order {
   company                     Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
   customerId                  String
   customer                    Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  branchId                    String?
+  branch                      Branch?              @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  riderId                     String?
+  rider                       Rider?               @relation(fields: [riderId], references: [id], onDelete: SetNull)
   orderNumber                 String               @unique
-  status                      OrderStatus          @default(NEW)
+  trackingToken               String               @unique
+  idempotencyKey              String?
+  status                      OrderStatus          @default(PENDING)
   paymentMethod               PaymentMethod
   paymentStatus               PaymentStatus        @default(PENDING)
   fulfilmentType              FulfilmentType
   subtotal                    Decimal              @db.Decimal(10, 2)
+  taxAmount                   Decimal              @default(0) @db.Decimal(10, 2)
   deliveryCharge              Decimal              @db.Decimal(10, 2)
   discountAmount              Decimal              @default(0) @db.Decimal(10, 2)
   totalAmount                 Decimal              @db.Decimal(10, 2)
+  amountCollected             Decimal?             @db.Decimal(10, 2)
+  paymentCollectedAt          DateTime?
+  paymentCollectedBy          String?
+  paymentNotes                String?
   customerNameSnapshot        String
   customerMobileSnapshot      String
   deliveryAddressSnapshotJson Json?
@@ -425,15 +661,21 @@ model Order {
   preparingAt                 DateTime?
   readyAt                     DateTime?
   outForDeliveryAt            DateTime?
+  pickedUpAt                  DateTime?
   deliveredAt                 DateTime?
+  completedAt                 DateTime?
   cancelledAt                 DateTime?
   items                       OrderItem[]
   statusHistory               OrderStatusHistory[]
+  feedback                    CustomerFeedback?
   createdAt                   DateTime             @default(now())
   updatedAt                   DateTime             @updatedAt
 
+  @@unique([companyId, idempotencyKey])
   @@index([companyId])
   @@index([customerId])
+  @@index([branchId])
+  @@index([riderId])
   @@index([status])
 }
 
@@ -459,9 +701,107 @@ model OrderStatusHistory {
   order          Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
   previousStatus OrderStatus?
   newStatus      OrderStatus
+  changedBy      String?
+  reason         String?
   note           String?
   createdAt      DateTime     @default(now())
 
+  @@index([orderId])
+}
+
+model Rider {
+  id                 String                  @id @default(uuid())
+  companyId          String
+  company            Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name               String
+  mobile             String
+  email              String?
+  vehicleType        String?
+  vehicleNumber      String?
+  active             Boolean                 @default(true)
+  availabilityStatus RiderAvailabilityStatus @default(AVAILABLE)
+  secureAccessCode   String                  @unique
+  currentOrderId     String?
+  notes              String?
+  orders             Order[]
+  assignments        RiderAssignment[]
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  @@index([companyId])
+}
+
+model RiderAssignment {
+  id          String    @id @default(uuid())
+  orderId     String
+  riderId     String
+  rider       Rider     @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  assignedAt  DateTime  @default(now())
+  pickedUpAt  DateTime?
+  deliveredAt DateTime?
+  active      Boolean   @default(true)
+
+  @@index([orderId])
+  @@index([riderId])
+}
+
+model Promotion {
+  id              String           @id @default(uuid())
+  companyId       String
+  company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  code            String
+  name            String
+  description     String?
+  type            PromotionType
+  fixedDiscount   Decimal?         @db.Decimal(10, 2)
+  percentDiscount Decimal?         @db.Decimal(5, 2)
+  minimumOrder    Decimal          @default(0) @db.Decimal(10, 2)
+  maximumDiscount Decimal?         @db.Decimal(10, 2)
+  startsAt        DateTime?
+  endsAt          DateTime?
+  active          Boolean          @default(true)
+  usages          PromotionUsage[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([companyId, code])
+  @@index([companyId])
+}
+
+model PromotionUsage {
+  id          String    @id @default(uuid())
+  promotionId String
+  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  orderId     String
+  discount    Decimal   @db.Decimal(10, 2)
+  createdAt   DateTime  @default(now())
+
+  @@unique([promotionId, orderId])
+}
+
+model CustomerFeedback {
+  id          String   @id @default(uuid())
+  orderId     String   @unique
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  rating      Int
+  comment     String?
+  submittedAt DateTime @default(now())
+}
+
+model NotificationEvent {
+  id           String                @id @default(uuid())
+  companyId    String
+  company      Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  orderId      String?
+  eventType    NotificationEventType
+  channel      String                @default("development-log")
+  recipient    String?
+  message      String
+  status       String                @default("LOGGED")
+  metadataJson Json?
+  createdAt    DateTime              @default(now())
+
+  @@index([companyId])
   @@index([orderId])
 }
 
@@ -498,43 +838,100 @@ model StudioCampaign {
 }
 
 model MediaAsset {
-  id               String               @id @default(uuid())
-  companyId        String
-  company          Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  campaignId       String?
-  campaign         StudioCampaign?      @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  productId        String?
-  product          Product?             @relation(fields: [productId], references: [id], onDelete: SetNull)
-  parentAssetId    String?
-  parentAsset      MediaAsset?          @relation("DerivedMedia", fields: [parentAssetId], references: [id], onDelete: SetNull)
-  derivedAssets    MediaAsset[]         @relation("DerivedMedia")
-  title            String
-  assetType        MediaAssetType
-  category         MediaCategory
-  sourceType       MediaSourceType      @default(UPLOADED)
-  originalFilename String
-  storedFilename   String
-  filePath         String
-  mimeType         String
-  fileSize         Int
-  platform         String?
-  width            Int?
-  height           Int?
-  durationSeconds  Int?
-  metadataJson     Json?
-  approvalStatus   ApprovalStatus       @default(DRAFT)
-  approvedAt       DateTime?
-  outputs          CampaignOutput[]
-  inputJobs        MediaProcessingJob[] @relation("InputMediaJob")
-  outputJobs       MediaProcessingJob[] @relation("OutputMediaJob")
-  placements       MediaPlacement[]
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
+  id                     String               @id @default(uuid())
+  companyId              String
+  company                Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  campaignId             String?
+  campaign               StudioCampaign?      @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  productId              String?
+  product                Product?             @relation(fields: [productId], references: [id], onDelete: SetNull)
+  parentAssetId          String?
+  parentAsset            MediaAsset?          @relation("DerivedMedia", fields: [parentAssetId], references: [id], onDelete: SetNull)
+  derivedAssets          MediaAsset[]         @relation("DerivedMedia")
+  title                  String
+  assetType              MediaAssetType
+  category               MediaCategory
+  sourceType             MediaSourceType      @default(UPLOADED)
+  originalFilename       String
+  storedFilename         String
+  filePath               String
+  mimeType               String
+  fileSize               Int
+  platform               String?
+  width                  Int?
+  height                 Int?
+  durationSeconds        Int?
+  metadataJson           Json?
+  description            String?
+  tagsJson               Json?
+  version                Int                  @default(1)
+  usageType              StudioMediaUsageType @default(GENERAL_MARKETING)
+  approvedForExternalUse Boolean              @default(false)
+  approvalStatus         ApprovalStatus       @default(DRAFT)
+  approvedAt             DateTime?
+  approvedBy             String?
+  approvalNotes          String?
+  outputs                CampaignOutput[]
+  inputJobs              MediaProcessingJob[] @relation("InputMediaJob")
+  outputJobs             MediaProcessingJob[] @relation("OutputMediaJob")
+  placements             MediaPlacement[]
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
 
   @@index([companyId])
   @@index([campaignId])
   @@index([productId])
   @@index([parentAssetId])
+}
+
+model StudioTemplate {
+  id                 String   @id @default(uuid())
+  companyId          String?
+  company            Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name               String
+  category           String
+  templateType       String
+  platform           String
+  format             String
+  width              Int
+  height             Int
+  previewImagePath   String?
+  editableFieldsJson Json?
+  brandCompatible    Boolean  @default(true)
+  active             Boolean  @default(true)
+  tagsJson           Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model StudioSettings {
+  id                      String   @id @default(uuid())
+  companyId               String   @unique
+  company                 Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  defaultLanguage         String   @default("English")
+  defaultPlatformsJson    Json?
+  defaultExportFormat     String   @default("original")
+  demoAiMode              Boolean  @default(true)
+  mediaStorageInfo        String?
+  integrationSettingsJson Json?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+model StudioActivity {
+  id           String   @id @default(uuid())
+  companyId    String?
+  company      Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  action       String
+  entityType   String
+  entityId     String?
+  summary      String
+  metadataJson Json?
+  createdAt    DateTime @default(now())
+
+  @@index([companyId])
 }
 
 model CampaignInput {

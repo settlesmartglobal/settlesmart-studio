@@ -1,22 +1,16 @@
 import Link from "next/link";
-import { Bell, Building2, ChartNoAxesColumn, Clapperboard, ImageIcon, LayoutDashboard, Package, Palette, Search, Settings, ShoppingBag, Truck } from "lucide-react";
+import { Bell, Building2, ChartNoAxesColumn, Clapperboard, ImageIcon, LayoutDashboard, Palette, Search, Settings, WandSparkles } from "lucide-react";
 import { prisma } from "@/core/database/prisma";
 
 const nav = [
-  ["Dashboard", "/", LayoutDashboard],
-  ["Companies", "/companies", Building2],
-  ["Brand Kit", "/brand-kit", Palette],
-  ["Commerce", "/commerce", ShoppingBag],
-  ["Products", "/commerce/products", Package],
-  ["Orders", "/orders", Truck],
-  ["Campaigns", "/campaigns", Clapperboard],
-  ["Create", "/studio/create", Clapperboard],
-  ["AI Content Studio", "/studio/create", Palette],
-  ["Media Library", "/media-library", ImageIcon],
-  ["Processing Jobs", "/studio/processing-jobs", Truck],
-  ["Templates", "/studio/templates", LayoutDashboard],
-  ["Analytics", "/analytics", ChartNoAxesColumn],
-  ["Settings", "/settings", Settings],
+  ["Overview", "/studio?section=overview", LayoutDashboard],
+  ["Brand", "/studio?section=brand", Building2],
+  ["Create", "/studio?section=create", WandSparkles],
+  ["Campaigns", "/studio?section=campaigns", Clapperboard],
+  ["Media", "/studio?section=media", ImageIcon],
+  ["Processing", "/studio?section=processing", ChartNoAxesColumn],
+  ["Templates", "/studio?section=templates", Palette],
+  ["Settings", "/studio?section=settings", Settings],
 ] as const;
 
 export async function AppShell({ title, children }: { title: string; children: React.ReactNode }) {

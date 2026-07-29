@@ -51,7 +51,7 @@ For local development, use the project’s normal Prisma migration workflow afte
 npm run seed:wave1
 ```
 
-The seed is blocked when `NODE_ENV=production`.
+The seed is blocked when `NODE_ENV=production`. The current starter profile is `SettleSmart Works`, with SettleSmart product-family records and placeholder media marked as requiring upload.
 
 ## Public Ordering Flow
 
@@ -67,7 +67,7 @@ Uploads are stored under `UPLOAD_DIR`, defaulting to `public/uploads`. The uploa
 
 ## Manual Test Checklist
 
-- Create a company with `commerceEnabled` and `orderingSlug`.
+- Create or review the SettleSmart Works Business Profile.
 - Configure Brand Kit colors and upload a supported brand asset.
 - Create categories and products.
 - Configure a delivery zone.

@@ -2,6 +2,7 @@ import { prisma } from "@/core/database/prisma";
 import { checkoutSchema } from "./schemas";
 import { haversineDistanceKm, money } from "./utils";
 import { Prisma } from "@prisma/client";
+import { randomUUID } from "crypto";
 
 export async function createOrder(input: unknown) {
   const parsed = checkoutSchema.safeParse(input);
@@ -10,13 +11,25 @@ export async function createOrder(input: unknown) {
 
   const company = await prisma.company.findFirst({
     where: { orderingSlug: data.orderingSlug, commerceEnabled: true, status: "ACTIVE" },
-    include: { deliveryZones: { where: { active: true }, orderBy: { radiusKm: "asc" } } },
+    include: {
+      deliveryZones: { where: { active: true }, orderBy: { radiusKm: "asc" } },
+      commerceSettings: true,
+      branches: { where: { active: true }, include: { hours: true }, take: 1 },
+    },
   });
   if (!company) return { ok: false as const, status: 404, body: { error: "Ordering page not found" } };
+  const settings = company.commerceSettings;
+  const branch = company.branches[0];
+  if (settings && !settings.acceptingOrders) return { ok: false as const, status: 400, body: { error: settings.temporaryClosureMessage || "The restaurant is temporarily unavailable." } };
+  if (data.idempotencyKey) {
+    const existing = await prisma.order.findUnique({ where: { companyId_idempotencyKey: { companyId: company.id, idempotencyKey: data.idempotencyKey } } });
+    if (existing) return { ok: true as const, status: 200, body: existing };
+  }
 
   const productIds = data.items.map((item) => item.productId);
   const products = await prisma.product.findMany({
-    where: { companyId: company.id, id: { in: productIds }, available: true },
+    where: { companyId: company.id, id: { in: productIds }, available: true, inStock: true },
+    include: { variants: true, addOnGroups: { include: { group: { include: { addOns: true } } } } },
   });
   if (products.length !== new Set(productIds).size) {
     return { ok: false as const, status: 400, body: { error: "One or more products are unavailable" } };
@@ -26,8 +39,16 @@ export async function createOrder(input: unknown) {
   const items = data.items.map((item) => {
     const product = productMap.get(item.productId);
     if (!product) throw new Error("Missing product");
-    const unitPrice = money(product.promotionalPrice ?? product.regularPrice);
-    return { product, quantity: item.quantity, unitPrice, lineTotal: unitPrice * item.quantity };
+    const variant = item.variantId ? product.variants.find((candidate) => candidate.id === item.variantId && candidate.active) : undefined;
+    if (item.variantId && !variant) throw new Error("Invalid product option");
+    const allowedAddOns = product.addOnGroups.flatMap((entry) => entry.group.addOns.filter((addOn) => addOn.active));
+    const selectedAddOns = (item.addOnIds ?? []).map((id) => {
+      const addOn = allowedAddOns.find((candidate) => candidate.id === id);
+      if (!addOn) throw new Error("Invalid add-on option");
+      return addOn;
+    });
+    const unitPrice = money(product.promotionalPrice ?? product.regularPrice) + money(variant?.priceDelta) + selectedAddOns.reduce((sum, addOn) => sum + money(addOn.price), 0);
+    return { product, quantity: item.quantity, unitPrice, lineTotal: unitPrice * item.quantity, variant, selectedAddOns, instructions: item.instructions };
   });
   const subtotal = items.reduce((total, item) => total + item.lineTotal, 0);
 
@@ -50,20 +71,44 @@ export async function createOrder(input: unknown) {
         };
       }
     }
-    if (zone) {
-      if (subtotal < money(zone.minimumOrderAmount)) {
-        return { ok: false as const, status: 400, body: { error: `Minimum delivery order is ${money(zone.minimumOrderAmount)}` } };
-      }
-      deliveryCharge = money(zone.deliveryCharge);
+    const minimumOrder = money(branch?.minimumOrderAmount ?? settings?.minimumOrderAmount ?? zone?.minimumOrderAmount);
+    if (minimumOrder && subtotal < minimumOrder) {
+      return { ok: false as const, status: 400, body: { error: `Minimum delivery order is ${minimumOrder}` } };
     }
+    deliveryCharge = money(branch?.deliveryFee ?? settings?.deliveryCharge ?? zone?.deliveryCharge);
+    const freeThreshold = money(branch?.freeDeliveryThreshold ?? settings?.freeDeliveryThreshold);
+    if (freeThreshold && subtotal >= freeThreshold) deliveryCharge = 0;
   }
 
-  const totalAmount = subtotal + deliveryCharge;
-  const orderNumber = `SS-${new Date().toISOString().slice(2, 10).replaceAll("-", "")}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+  let discountAmount = 0;
+  let promotion: Awaited<ReturnType<typeof prisma.promotion.findFirst>> = null;
+  if (data.promotionCode) {
+    promotion = await prisma.promotion.findFirst({
+      where: { companyId: company.id, code: data.promotionCode.toUpperCase(), active: true },
+    });
+    if (!promotion) return { ok: false as const, status: 400, body: { error: "Promotion code is not valid." } };
+    if (subtotal < money(promotion.minimumOrder)) {
+      return { ok: false as const, status: 400, body: { error: `Promotion requires a minimum order of ${money(promotion.minimumOrder)}` } };
+    }
+    if (promotion.type === "PERCENTAGE") discountAmount = subtotal * (money(promotion.percentDiscount) / 100);
+    if (promotion.type === "FIXED_AMOUNT") discountAmount = money(promotion.fixedDiscount);
+    if (promotion.type === "FREE_DELIVERY") discountAmount = deliveryCharge;
+    const cap = money(promotion.maximumDiscount);
+    if (cap) discountAmount = Math.min(discountAmount, cap);
+  }
+
+  const taxableSubtotal = items.filter((item) => item.product.taxable).reduce((sum, item) => sum + item.lineTotal, 0);
+  const taxAmount = Math.max(0, (taxableSubtotal - discountAmount) * (money(settings?.taxPercentage ?? 0) / 100));
+  const totalAmount = subtotal - discountAmount + taxAmount + deliveryCharge;
+  const today = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+  const countToday = await prisma.order.count({ where: { companyId: company.id, placedAt: { gte: new Date(`${today.slice(0, 4)}-${today.slice(4, 6)}-${today.slice(6, 8)}T00:00:00.000Z`) } } });
+  const orderNumber = `SS-ORD-${today}-${String(countToday + 1).padStart(4, "0")}`;
 
   const order = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-    const customer = await tx.customer.create({
-      data: {
+    const customer = await tx.customer.upsert({
+      where: { companyId_mobile: { companyId: company.id, mobile: data.customer.mobile } },
+      update: { name: data.customer.name, email: data.customer.email || undefined },
+      create: {
         companyId: company.id,
         name: data.customer.name,
         mobile: data.customer.mobile,
@@ -76,12 +121,17 @@ export async function createOrder(input: unknown) {
       data: {
         companyId: company.id,
         customerId: customer.id,
+        branchId: branch?.id,
         orderNumber,
+        trackingToken: randomUUID(),
+        idempotencyKey: data.idempotencyKey,
         paymentMethod: data.paymentMethod,
-        paymentStatus: data.paymentMethod === "PICKUP_PAYMENT" ? "NOT_APPLICABLE" : "PENDING",
+        paymentStatus: data.paymentMethod === "PICKUP_PAYMENT" ? "NOT_REQUIRED" : "PENDING",
         fulfilmentType: data.fulfilmentType,
         subtotal,
+        taxAmount,
         deliveryCharge,
+        discountAmount,
         totalAmount,
         customerNameSnapshot: customer.name,
         customerMobileSnapshot: customer.mobile,
@@ -97,11 +147,28 @@ export async function createOrder(input: unknown) {
             unitPrice: item.unitPrice,
             quantity: item.quantity,
             lineTotal: item.lineTotal,
+            selectedOptionsJson: {
+              variant: item.variant ? { id: item.variant.id, name: item.variant.name, priceDelta: money(item.variant.priceDelta) } : null,
+              addOns: item.selectedAddOns.map((addOn) => ({ id: addOn.id, name: addOn.name, price: money(addOn.price) })),
+              instructions: item.instructions || "",
+            },
           })),
         },
-        statusHistory: { create: { newStatus: "NEW", note: "Order placed" } },
+        statusHistory: { create: { newStatus: "PENDING", note: "Order placed" } },
       },
       include: { items: true, statusHistory: true },
+    });
+    if (promotion) {
+      await tx.promotionUsage.create({ data: { promotionId: promotion.id, orderId: created.id, discount: discountAmount } });
+    }
+    await tx.notificationEvent.create({
+      data: {
+        companyId: company.id,
+        orderId: created.id,
+        eventType: "ORDER_CREATED",
+        recipient: data.customer.mobile,
+        message: `Order ${created.orderNumber} was placed and is pending restaurant acceptance.`,
+      },
     });
     return created;
   });

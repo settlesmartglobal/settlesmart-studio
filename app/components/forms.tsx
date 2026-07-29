@@ -20,7 +20,7 @@ function useNotice() {
   return { notice, error, ok: (message: string) => { setNotice(message); setError(""); }, fail: (err: unknown) => { setError(err instanceof Error ? err.message : "Something went wrong"); setNotice(""); } };
 }
 
-export function CompanyForm({ company }: { company?: Company & Record<string, unknown> }) {
+export function CompanyForm({ company, showFeatureFlags = true }: { company?: Company & Record<string, unknown>; showFeatureFlags?: boolean }) {
   const state = useNotice();
   return (
     <form className="grid gap-4 md:grid-cols-2" onSubmit={async (event) => {
@@ -28,12 +28,12 @@ export function CompanyForm({ company }: { company?: Company & Record<string, un
       const values = Object.fromEntries(new FormData(event.currentTarget));
       try { await send(company ? `/api/company/${company.id}` : "/api/company", values, company ? "PUT" : "POST"); state.ok("Company saved"); } catch (error) { state.fail(error); }
     }}>
-      {["name", "slug", "industry", "country", "city", "address", "phone", "whatsapp", "email", "website", "orderingSlug"].map((name) => (
+      {["name", "slug", "industry", "country", "city", "address", "phone", "whatsapp", "email", "website", "targetAudience", "productsSummary", "brandPersonality", "preferredLanguage"].map((name) => (
         <label key={name} className="grid gap-1 text-sm font-medium capitalize">{name}<input name={name} defaultValue={String(company?.[name] ?? "")} className="rounded-md border border-slate-200 px-3 py-2" /></label>
       ))}
       <label className="grid gap-1 text-sm font-medium">Business type<select name="businessType" defaultValue={String(company?.businessType ?? "OTHER")} className="rounded-md border border-slate-200 px-3 py-2">{["RESTAURANT","GROCERY","HOTEL","RECRUITMENT_AGENCY","MANPOWER_CONSULTANCY","HR_CONSULTANCY","CLINIC","RETAIL","EDUCATION","SERVICE_BUSINESS","OTHER"].map((x) => <option key={x}>{x}</option>)}</select></label>
       <label className="grid gap-1 text-sm font-medium md:col-span-2">Description<textarea name="description" defaultValue={String(company?.description ?? "")} className="min-h-24 rounded-md border border-slate-200 px-3 py-2" /></label>
-      {["commerceEnabled", "studioEnabled", "recruitmentEnabled"].map((name) => <label key={name} className="flex items-center gap-2 text-sm"><input type="checkbox" name={name} defaultChecked={Boolean(company?.[name])} />{name}</label>)}
+      {showFeatureFlags && ["commerceEnabled", "studioEnabled", "recruitmentEnabled"].map((name) => <label key={name} className="flex items-center gap-2 text-sm"><input type="checkbox" name={name} defaultChecked={Boolean(company?.[name])} />{name}</label>)}
       <button className="rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white md:col-span-2">Save company</button>
       {state.notice && <p className="text-sm text-emerald-700">{state.notice}</p>}{state.error && <p className="text-sm text-red-600">{state.error}</p>}
     </form>
@@ -45,8 +45,9 @@ export function BrandForm({ companies }: { companies: Company[] }) {
   return (
     <form className="grid gap-4 md:grid-cols-2" onSubmit={async (event) => { event.preventDefault(); try { await send("/api/brand-kit", Object.fromEntries(new FormData(event.currentTarget))); state.ok("Brand Kit saved"); } catch (error) { state.fail(error); } }}>
       <CompanySelect companies={companies} />
-      {["tagline","headingFont","bodyFont","brandTone","visualStyle","preferredImageStyle","preferredVideoStyle","defaultCallToAction","instagramHandle","facebookPage","linkedinPage","whatsappNumber"].map((name) => <label key={name} className="grid gap-1 text-sm font-medium capitalize">{name}<input name={name} className="rounded-md border border-slate-200 px-3 py-2" /></label>)}
-      {["primaryColor","secondaryColor","accentColor","backgroundColor"].map((name) => <label key={name} className="grid gap-1 text-sm font-medium capitalize">{name}<input type="color" name={name} defaultValue={name === "backgroundColor" ? "#ffffff" : name === "secondaryColor" ? "#14b8a6" : name === "accentColor" ? "#f97316" : "#2563eb"} className="h-11 rounded-md border border-slate-200" /></label>)}
+      {["tagline","logoPath","secondaryLogoPath","lightLogoPath","darkLogoPath","faviconPath","headingFont","bodyFont","brandTone","visualStyle","preferredImageStyle","preferredVideoStyle","defaultCallToAction","ctaStyle","instagramHandle","facebookPage","linkedinPage","whatsappNumber"].map((name) => <label key={name} className="grid gap-1 text-sm font-medium capitalize">{name}<input name={name} className="rounded-md border border-slate-200 px-3 py-2" /></label>)}
+      {["primaryColor","secondaryColor","accentColor","backgroundColor","textColor"].map((name) => <label key={name} className="grid gap-1 text-sm font-medium capitalize">{name}<input type="color" name={name} defaultValue={name === "backgroundColor" ? "#ffffff" : name === "textColor" ? "#111827" : name === "secondaryColor" ? "#14b8a6" : name === "accentColor" ? "#f97316" : "#2563eb"} className="h-11 rounded-md border border-slate-200" /></label>)}
+      <label className="grid gap-1 text-sm font-medium md:col-span-2">Approval status<select name="approvalStatus" defaultValue="APPROVED" className="rounded-md border border-slate-200 px-3 py-2"><option>DRAFT</option><option>PENDING_REVIEW</option><option>APPROVED</option><option>REJECTED</option></select></label>
       <button className="rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white md:col-span-2">Save Brand Kit</button>
       {state.notice && <p className="text-sm text-emerald-700">{state.notice}</p>}{state.error && <p className="text-sm text-red-600">{state.error}</p>}
     </form>
@@ -89,7 +90,7 @@ export function CampaignForm({ companies, products }: { companies: Company[]; pr
 
 export function OrderStatusForm({ orderId, status }: { orderId: string; status: string }) {
   const state = useNotice();
-  return <form className="flex flex-wrap gap-2" onSubmit={async (event) => { event.preventDefault(); try { await send(`/api/orders/${orderId}`, Object.fromEntries(new FormData(event.currentTarget)), "PATCH"); state.ok("Order updated"); } catch (error) { state.fail(error); } }}><select name="status" defaultValue={status} className="rounded-md border border-slate-200 px-3 py-2">{["NEW","ACCEPTED","PREPARING","READY","OUT_FOR_DELIVERY","DELIVERED","CANCELLED","REJECTED"].map((x) => <option key={x}>{x}</option>)}</select><input name="note" placeholder="Note" className="rounded-md border border-slate-200 px-3 py-2" /><button className="rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white">Update</button>{state.notice && <span className="text-sm text-emerald-700">{state.notice}</span>}{state.error && <span className="text-sm text-red-600">{state.error}</span>}</form>;
+  return <form className="flex flex-wrap gap-2" onSubmit={async (event) => { event.preventDefault(); try { await send(`/api/orders/${orderId}`, Object.fromEntries(new FormData(event.currentTarget)), "PATCH"); state.ok("Order updated"); } catch (error) { state.fail(error); } }}><select name="status" defaultValue={status} className="rounded-md border border-slate-200 px-3 py-2">{["PENDING","ACCEPTED","PREPARING","READY","RIDER_ASSIGNED","PICKED_UP","OUT_FOR_DELIVERY","DELIVERED","COMPLETED","CANCELLED","REJECTED"].map((x) => <option key={x}>{x}</option>)}</select><input name="note" placeholder="Note" className="rounded-md border border-slate-200 px-3 py-2" /><button className="rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white">Update</button>{state.notice && <span className="text-sm text-emerald-700">{state.notice}</span>}{state.error && <span className="text-sm text-red-600">{state.error}</span>}</form>;
 }
 
 export function QrCodeBox({ url }: { url: string }) {
