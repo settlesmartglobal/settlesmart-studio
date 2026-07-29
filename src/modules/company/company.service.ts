@@ -1,3 +1,4 @@
+import { CreateCompanyDto } from "./company.schema";
 import { CompanyRepository } from "./company.repository";
 
 export class CompanyService {
@@ -9,11 +10,7 @@ export class CompanyService {
     return this.repository.findAll();
   }
 
-  create(data: {
-    name: string;
-    slug: string;
-    email?: string;
-  }) {
+  create(data: CreateCompanyDto) {
     return this.repository.create(data);
   }
 }
