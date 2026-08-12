@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "test": "node scripts/commerce-workflow.test.mjs && node scripts/studio-actions.test.mjs && node scripts/provider-lifecycle.test.mjs",
     "start": "next start",
     "lint": "eslint",
     "seed:wave1": "node prisma/seed/wave1.mjs",
@@ -20,12 +21,14 @@
     "lucide-react": "^1.27.0",
     "next": "16.2.12",
     "next-auth": "^4.24.15",
+    "openai": "^7.4.0",
     "prisma": "^6.16.2",
     "qrcode": "^1.5.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.83.0",
     "react-icons": "^5.7.0",
+    "sharp": "^0.35.3",
     "uuid": "^14.0.1",
     "zod": "^4.4.3"
   },

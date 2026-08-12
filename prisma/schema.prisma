@@ -10,6 +10,11 @@ datasource db {
 enum UserRole {
   SUPER_ADMIN
   COMPANY_ADMIN
+  COMMERCE_OWNER
+  FRONT_DESK
+  KITCHEN
+  DISPATCH
+  RIDER
   EDITOR
   VIEWER
 }
@@ -72,6 +77,7 @@ enum OrderStatus {
   PICKED_UP
   OUT_FOR_DELIVERY
   DELIVERED
+  PAYMENT_COLLECTED
   COMPLETED
   CANCELLED
 }
@@ -81,6 +87,7 @@ enum PaymentMethod {
   CARD_ON_DELIVERY
   CASH_ON_PICKUP
   CARD_ON_PICKUP
+  ONLINE
   PICKUP_PAYMENT
 }
 
@@ -128,6 +135,8 @@ enum NotificationEventType {
   ORDER_PICKED_UP
   ORDER_OUT_FOR_DELIVERY
   ORDER_DELIVERED
+  PAYMENT_COLLECTED
+  RECEIPT_READY
   ORDER_CANCELLED
 }
 
@@ -201,9 +210,12 @@ enum StudioJobType {
 }
 
 enum StudioJobStatus {
+  SCHEDULED
   QUEUED
+  SUBMITTING
   PROCESSING
   COMPLETED
+  PUBLISHED
   FAILED
   CANCELLED
 }
@@ -588,17 +600,19 @@ model OperatingHours {
 }
 
 model Customer {
-  id               String            @id @default(uuid())
-  companyId        String
-  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name             String
-  mobile           String
-  email            String?
-  marketingConsent Boolean           @default(false)
-  orders           Order[]
-  addresses        CustomerAddress[]
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id                         String            @id @default(uuid())
+  companyId                  String
+  company                    Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name                       String
+  mobile                     String
+  email                      String?
+  marketingConsent           Boolean           @default(false)
+  whatsappOperationalConsent Boolean           @default(false)
+  whatsappConsentAt          DateTime?
+  orders                     Order[]
+  addresses                  CustomerAddress[]
+  createdAt                  DateTime          @default(now())
+  updatedAt                  DateTime          @updatedAt
 
   @@unique([companyId, mobile])
   @@index([companyId])
@@ -789,17 +803,46 @@ model CustomerFeedback {
 }
 
 model NotificationEvent {
-  id           String                @id @default(uuid())
-  companyId    String
-  company      Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  orderId      String?
-  eventType    NotificationEventType
-  channel      String                @default("development-log")
-  recipient    String?
-  message      String
-  status       String                @default("LOGGED")
-  metadataJson Json?
-  createdAt    DateTime              @default(now())
+  id                 String                @id @default(uuid())
+  companyId          String
+  company            Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  orderId            String?
+  eventType          NotificationEventType
+  channel            String                @default("development-log")
+  provider           String                @default("development")
+  templateName       String?
+  providerMessageId  String?
+  recipient          String?
+  message            String
+  status             String                @default("PENDING")
+  attemptCount       Int                   @default(0)
+  submittedAt        DateTime?
+  deliveredAt        DateTime?
+  readAt             DateTime?
+  failureCode        String?
+  safeFailureMessage String?
+  manualFallbackUrl  String?
+  dedupeKey          String?
+  metadataJson       Json?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  @@unique([dedupeKey])
+  @@index([companyId])
+  @@index([orderId])
+  @@index([providerMessageId])
+  @@index([status])
+}
+
+model WhatsAppInboundMessage {
+  id                String   @id @default(uuid())
+  companyId         String?
+  orderId           String?
+  providerMessageId String?  @unique
+  fromNumber        String?
+  bodyPreview       String?
+  payloadJson       Json?
+  receivedAt        DateTime @default(now())
 
   @@index([companyId])
   @@index([orderId])
@@ -1039,6 +1082,15 @@ model MediaProcessingJob {
   jobType            StudioJobType
   status             StudioJobStatus @default(QUEUED)
   progress           Int             @default(0)
+  providerJobId      String?
+  publishIntentKey   String?
+  attempts           Int             @default(0)
+  lastAttemptAt      DateTime?
+  nextRetryAt        DateTime?
+  failureCode        String?
+  providerPostId     String?
+  publishedUrl       String?
+  publishedAt        DateTime?
   configurationJson  Json?
   errorMessage       String?
   startedAt          DateTime?
@@ -1046,10 +1098,13 @@ model MediaProcessingJob {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 
+  @@unique([providerJobId])
+  @@unique([publishIntentKey])
   @@index([companyId])
   @@index([campaignId])
   @@index([inputMediaAssetId])
   @@index([outputMediaAssetId])
+  @@index([nextRetryAt])
 }
 
 model MediaPlacement {
