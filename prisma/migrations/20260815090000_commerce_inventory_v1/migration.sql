@@ -1,0 +1,9 @@
+CREATE TYPE "InventoryMode" AS ENUM ('TRACK_QUANTITY', 'AVAILABILITY_ONLY', 'ALWAYS_AVAILABLE');
+
+ALTER TABLE "Product"
+  ADD COLUMN "inventoryMode" "InventoryMode" NOT NULL DEFAULT 'ALWAYS_AVAILABLE',
+  ADD COLUMN "inventoryQuantity" INTEGER,
+  ADD COLUMN "lowStockThreshold" INTEGER;
+
+ALTER TABLE "Order"
+  ADD COLUMN "inventoryRestoredAt" TIMESTAMP(3);

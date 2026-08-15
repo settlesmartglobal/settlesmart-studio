@@ -22,12 +22,9 @@ CREATE TYPE "public"."NotificationEventType" AS ENUM ('ORDER_CREATED', 'ORDER_AC
 BEGIN;
 CREATE TYPE "public"."OrderStatus_new" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED', 'PREPARING', 'READY', 'RIDER_ASSIGNED', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED', 'CANCELLED');
 ALTER TABLE "public"."Order" ALTER COLUMN "status" DROP DEFAULT;
-UPDATE "public"."Order" SET "status" = 'PENDING' WHERE "status"::text = 'NEW';
-UPDATE "public"."OrderStatusHistory" SET "previousStatus" = 'PENDING' WHERE "previousStatus"::text = 'NEW';
-UPDATE "public"."OrderStatusHistory" SET "newStatus" = 'PENDING' WHERE "newStatus"::text = 'NEW';
-ALTER TABLE "public"."Order" ALTER COLUMN "status" TYPE "public"."OrderStatus_new" USING ("status"::text::"public"."OrderStatus_new");
-ALTER TABLE "public"."OrderStatusHistory" ALTER COLUMN "previousStatus" TYPE "public"."OrderStatus_new" USING ("previousStatus"::text::"public"."OrderStatus_new");
-ALTER TABLE "public"."OrderStatusHistory" ALTER COLUMN "newStatus" TYPE "public"."OrderStatus_new" USING ("newStatus"::text::"public"."OrderStatus_new");
+ALTER TABLE "public"."Order" ALTER COLUMN "status" TYPE "public"."OrderStatus_new" USING (CASE WHEN "status"::text = 'NEW' THEN 'PENDING' ELSE "status"::text END::"public"."OrderStatus_new");
+ALTER TABLE "public"."OrderStatusHistory" ALTER COLUMN "previousStatus" TYPE "public"."OrderStatus_new" USING (CASE WHEN "previousStatus"::text = 'NEW' THEN 'PENDING' ELSE "previousStatus"::text END::"public"."OrderStatus_new");
+ALTER TABLE "public"."OrderStatusHistory" ALTER COLUMN "newStatus" TYPE "public"."OrderStatus_new" USING (CASE WHEN "newStatus"::text = 'NEW' THEN 'PENDING' ELSE "newStatus"::text END::"public"."OrderStatus_new");
 ALTER TYPE "public"."OrderStatus" RENAME TO "OrderStatus_old";
 ALTER TYPE "public"."OrderStatus_new" RENAME TO "OrderStatus";
 DROP TYPE "public"."OrderStatus_old";
