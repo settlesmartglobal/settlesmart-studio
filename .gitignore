@@ -48,3 +48,4 @@ src/generated/prisma/*.dylib.node
 # Local uploaded media
 public/uploads/*
 !public/uploads/.gitkeep
+!public/uploads/commerce-*.svg

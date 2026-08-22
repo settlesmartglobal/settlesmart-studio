@@ -42,6 +42,20 @@ export async function getMetaConnection(companyId: string): Promise<MetaConnecti
   return json.meta ?? { provider: "meta", status: metaConfig().configured ? "NOT_CONNECTED" : "CONFIGURATION_REQUIRED" };
 }
 
+export async function getMetaPublishingReadiness(companyId: string) {
+  const config = metaConfig();
+  const connection = await getMetaConnection(companyId);
+  const missingScopes = scopes.filter((scope) => !connection.grantedScopes?.includes(scope));
+  const ready = Boolean(config.configured && connection.status === "CONNECTED" && connection.encryptedAccessToken && connection.facebookPageId && connection.instagramAccountId && missingScopes.length === 0);
+  return {
+    ready,
+    status: ready ? "READY" : config.configured || connection.status === "CONNECTED" ? "PARTIAL" : "NOT CONFIGURED",
+    reason: ready ? "" : "Social publishing is not connected yet.",
+    connection,
+    missingScopes,
+  };
+}
+
 export async function saveMetaConnection(companyId: string, connection: MetaConnection) {
   const settings = await prisma.studioSettings.findUnique({ where: { companyId } });
   const existing = (settings?.integrationSettingsJson ?? {}) as Record<string, unknown>;
@@ -82,6 +96,8 @@ export async function completeMetaOAuth(companyId: string, code: string) {
 export async function publishToMeta(input: PublishInput) {
   const asset = await prisma.mediaAsset.findFirst({ where: { id: input.mediaAssetId, companyId: input.companyId } });
   if (!asset) throw new Error("Media asset not found for company.");
+  const readiness = await getMetaPublishingReadiness(input.companyId);
+  if (!readiness.ready) throw new Error("Social publishing is not connected yet.");
   const scheduled = input.scheduledAt ? new Date(input.scheduledAt) : null;
   const jobs = [];
   for (const platform of input.platforms) {

@@ -21,6 +21,8 @@ export const generationSchema = campaignIdSchema.extend({
 export const posterSchema = campaignIdSchema.extend({
   platform: platformSchema.default("INSTAGRAM"),
   template: z.enum(["recruitment_professional", "food_product", "retail_offer", "hospitality", "corporate_service"]).optional(),
+  visualSource: z.enum(["ai", "template", "existing", "variation"]).default("ai"),
+  quality: z.enum(["fast", "balanced", "premium"]).default("balanced"),
   headline: z.string().max(120).optional(),
   supportingText: z.string().max(260).optional(),
   mediaAssetId: z.string().uuid().optional().or(z.literal("")),
@@ -28,6 +30,7 @@ export const posterSchema = campaignIdSchema.extend({
 
 export const storyboardSchema = campaignIdSchema.extend({
   targetDuration: z.enum(["10-15", "20-30", "30-60"]).optional(),
+  mediaAssetId: z.string().uuid().optional().or(z.literal("")),
 });
 
 export const enhancementSchema = z.object({

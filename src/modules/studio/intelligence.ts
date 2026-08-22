@@ -123,6 +123,7 @@ export function creativeBrief(context: Awaited<ReturnType<typeof getBusinessCont
 export function storyboardScenes(context: Awaited<ReturnType<typeof getBusinessContext>>, details: Record<string, unknown>, targetDuration = "10-15") {
   const recruitment = context.businessType.includes("RECRUITMENT") || details.jobTitle;
   const food = context.businessType === "RESTAURANT" || details.productItem;
+  const visualReference = details.visualReference as { title?: string; filePath?: string; sourceType?: string } | null | undefined;
   const scenes = recruitment
     ? ["Hiring hook", "Role and location", "Key requirements", "Benefits without fabrication", "Apply CTA"]
     : food
@@ -133,7 +134,7 @@ export function storyboardScenes(context: Awaited<ReturnType<typeof getBusinessC
     durationSeconds: targetDuration === "30-60" ? 10 : 4,
     scenePurpose: purpose,
     headlineCaption: index === 0 ? String(details.productItem ?? details.jobTitle ?? details.title ?? context.name) : purpose,
-    visualRecommendation: context.visualProfile[index % context.visualProfile.length],
+    visualRecommendation: index === 0 && visualReference ? `Use uploaded campaign visual "${visualReference.title ?? "reference"}" (${visualReference.sourceType ?? "media"}) as the composition reference: ${visualReference.filePath ?? ""}` : context.visualProfile[index % context.visualProfile.length],
     transition: "Clean fade",
     voiceoverText: purpose,
     musicMood: recruitment ? "confident professional" : food ? "warm upbeat" : "modern optimistic",
