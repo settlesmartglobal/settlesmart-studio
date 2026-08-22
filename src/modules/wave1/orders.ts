@@ -3,7 +3,27 @@ import { checkoutSchema } from "./schemas";
 import { haversineDistanceKm, money } from "./utils";
 import { Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
-import { notifyOrderEvent, whatsappLink } from "./notifications";
+import { notifyOrderEvent } from "./notifications";
+import { inventoryUnavailableMessage, isOrderable, reserveTrackedInventory } from "./inventory";
+import { variantSellingPrice, variantSnapshot } from "./variants";
+
+function localDayAndTime(timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date());
+  const weekday = String(parts.find((part) => part.type === "weekday")?.value ?? "Sun");
+  const hour = String(parts.find((part) => part.type === "hour")?.value ?? "00").padStart(2, "0");
+  const minute = String(parts.find((part) => part.type === "minute")?.value ?? "00").padStart(2, "0");
+  const dayOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(weekday);
+  return { dayOfWeek: Math.max(dayOfWeek, 0), time: `${hour}:${minute}` };
+}
+
+function isOpenNow(hours: Array<{ dayOfWeek: number; openTime: string; closeTime: string; closed: boolean }>, timeZone = "Asia/Dubai") {
+  if (!hours.length) return true;
+  const now = localDayAndTime(timeZone);
+  const today = hours.find((hour) => hour.dayOfWeek === now.dayOfWeek);
+  if (!today || today.closed) return false;
+  if (today.openTime <= today.closeTime) return now.time >= today.openTime && now.time <= today.closeTime;
+  return now.time >= today.openTime || now.time <= today.closeTime;
+}
 
 export async function createOrder(input: unknown) {
   const parsed = checkoutSchema.safeParse(input);
@@ -16,12 +36,21 @@ export async function createOrder(input: unknown) {
       deliveryZones: { where: { active: true }, orderBy: { radiusKm: "asc" } },
       commerceSettings: true,
       branches: { where: { active: true }, include: { hours: true }, take: 1 },
+      operatingHours: true,
     },
   });
   if (!company) return { ok: false as const, status: 404, body: { error: "Ordering page not found" } };
   const settings = company.commerceSettings;
   const branch = company.branches[0];
   if (settings && !settings.acceptingOrders) return { ok: false as const, status: 400, body: { error: settings.temporaryClosureMessage || "The restaurant is temporarily unavailable." } };
+  if (branch?.temporarilyClosed) return { ok: false as const, status: 400, body: { error: branch.closureReason || "This branch is temporarily closed." } };
+  const hours = branch?.hours.length ? branch.hours : company.operatingHours;
+  if (!isOpenNow(hours, settings?.timezone)) return { ok: false as const, status: 400, body: { error: "The restaurant is currently closed." } };
+  if (data.fulfilmentType === "DELIVERY" && settings?.deliveryEnabled === false) return { ok: false as const, status: 400, body: { error: "Delivery is currently unavailable." } };
+  if (data.fulfilmentType === "PICKUP" && settings?.pickupEnabled === false) return { ok: false as const, status: 400, body: { error: "Pickup is currently unavailable." } };
+  if (data.paymentMethod === "ONLINE" && !settings?.onlinePaymentEnabled) return { ok: false as const, status: 400, body: { error: "Online payment is not configured." } };
+  if (data.paymentMethod.includes("CARD") && !settings?.cardOnDeliveryEnabled) return { ok: false as const, status: 400, body: { error: "Card payment is currently unavailable." } };
+  if (data.paymentMethod.includes("CASH") && !settings?.cashPaymentEnabled) return { ok: false as const, status: 400, body: { error: "Cash payment is currently unavailable." } };
   if (data.idempotencyKey) {
     const existing = await prisma.order.findUnique({ where: { companyId_idempotencyKey: { companyId: company.id, idempotencyKey: data.idempotencyKey } } });
     if (existing) return { ok: true as const, status: 200, body: existing };
@@ -29,7 +58,7 @@ export async function createOrder(input: unknown) {
 
   const productIds = data.items.map((item) => item.productId);
   const products = await prisma.product.findMany({
-    where: { companyId: company.id, id: { in: productIds }, available: true, inStock: true },
+    where: { companyId: company.id, id: { in: productIds } },
     include: { variants: true, addOnGroups: { include: { group: { include: { addOns: true } } } } },
   });
   if (products.length !== new Set(productIds).size) {
@@ -37,20 +66,30 @@ export async function createOrder(input: unknown) {
   }
 
   const productMap = new Map(products.map((product) => [product.id, product]));
-  const items = data.items.map((item) => {
+  let items;
+  try {
+    items = data.items.map((item) => {
     const product = productMap.get(item.productId);
     if (!product) throw new Error("Missing product");
+    if (!isOrderable(product)) throw new Error(inventoryUnavailableMessage(product));
     const variant = item.variantId ? product.variants.find((candidate) => candidate.id === item.variantId && candidate.active) : undefined;
     if (item.variantId && !variant) throw new Error("Invalid product option");
+    for (const entry of product.addOnGroups) {
+      const selectedInGroup = (item.addOnIds ?? []).filter((id) => entry.group.addOns.some((addOn) => addOn.id === id && addOn.active));
+      if (selectedInGroup.length < entry.group.minSelections || selectedInGroup.length > entry.group.maxSelections) throw new Error(`Choose ${entry.group.minSelections}-${entry.group.maxSelections} options for ${entry.group.name}`);
+    }
     const allowedAddOns = product.addOnGroups.flatMap((entry) => entry.group.addOns.filter((addOn) => addOn.active));
     const selectedAddOns = (item.addOnIds ?? []).map((id) => {
       const addOn = allowedAddOns.find((candidate) => candidate.id === id);
       if (!addOn) throw new Error("Invalid add-on option");
       return addOn;
     });
-    const unitPrice = money(product.promotionalPrice ?? product.regularPrice) + money(variant?.priceDelta) + selectedAddOns.reduce((sum, addOn) => sum + money(addOn.price), 0);
-    return { product, quantity: item.quantity, unitPrice, lineTotal: unitPrice * item.quantity, variant, selectedAddOns, instructions: item.instructions };
-  });
+    const unitPrice = variantSellingPrice(product, variant) + selectedAddOns.reduce((sum, addOn) => sum + money(addOn.price), 0);
+      return { product, quantity: item.quantity, unitPrice, lineTotal: unitPrice * item.quantity, variant, selectedAddOns, instructions: item.instructions };
+    });
+  } catch (error) {
+    return { ok: false as const, status: 400, body: { error: error instanceof Error ? error.message : "Invalid product options" } };
+  }
   const subtotal = items.reduce((total, item) => total + item.lineTotal, 0);
 
   let deliveryCharge = 0;
@@ -106,15 +145,19 @@ export async function createOrder(input: unknown) {
   const orderNumber = `SS-ORD-${today}-${String(countToday + 1).padStart(4, "0")}`;
 
   const order = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await reserveTrackedInventory(tx, items.map((item) => ({ product: item.product, quantity: item.quantity })));
+
     const customer = await tx.customer.upsert({
       where: { companyId_mobile: { companyId: company.id, mobile: data.customer.mobile } },
-      update: { name: data.customer.name, email: data.customer.email || undefined },
+      update: { name: data.customer.name, email: data.customer.email || undefined, whatsappOperationalConsent: data.customer.whatsappOperationalConsent, whatsappConsentAt: data.customer.whatsappOperationalConsent ? new Date() : undefined },
       create: {
         companyId: company.id,
         name: data.customer.name,
         mobile: data.customer.mobile,
         email: data.customer.email || undefined,
         marketingConsent: data.customer.marketingConsent,
+        whatsappOperationalConsent: data.customer.whatsappOperationalConsent,
+        whatsappConsentAt: data.customer.whatsappOperationalConsent ? new Date() : undefined,
       },
     });
 
@@ -149,7 +192,7 @@ export async function createOrder(input: unknown) {
             quantity: item.quantity,
             lineTotal: item.lineTotal,
             selectedOptionsJson: {
-              variant: item.variant ? { id: item.variant.id, name: item.variant.name, priceDelta: money(item.variant.priceDelta) } : null,
+              variant: variantSnapshot(item.product, item.variant),
               addOns: item.selectedAddOns.map((addOn) => ({ id: addOn.id, name: addOn.name, price: money(addOn.price) })),
               instructions: item.instructions || "",
             },
@@ -169,7 +212,8 @@ export async function createOrder(input: unknown) {
       eventType: "ORDER_CREATED",
       recipient: data.customer.mobile,
       message: `Order ${created.orderNumber} was placed and is pending restaurant acceptance.`,
-      metadata: { provider: "development-log", whatsappFallbackUrl: whatsappLink(data.customer.mobile, `Your order ${created.orderNumber} has been placed.`) },
+      consentGranted: data.customer.whatsappOperationalConsent,
+      metadata: { templateVariables: { customerName: customer.name, orderNumber: created.orderNumber, restaurantName: company.commerceSettings?.displayName ?? company.name } },
     });
     return created;
   });

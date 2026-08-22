@@ -21,6 +21,8 @@ export async function POST(req: Request) {
         categoryId: clean(data.categoryId) as string | undefined,
         promotionalPrice: clean(data.promotionalPrice) as number | undefined,
         preparationMinutes: clean(data.preparationMinutes) as number | undefined,
+        inventoryQuantity: clean(data.inventoryQuantity) as number | undefined,
+        lowStockThreshold: clean(data.lowStockThreshold) as number | undefined,
       },
     });
     return NextResponse.json(product, { status: 201 });

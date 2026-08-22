@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" role="img" aria-label="Chicken mandi">
+  <rect width="640" height="360" fill="#f8fafc"/>
+  <ellipse cx="320" cy="226" rx="220" ry="74" fill="#fde68a"/>
+  <path d="M235 206c38-64 135-68 174 0 18 31-4 62-34 62h-106c-30 0-51-31-34-62z" fill="#92400e"/>
+  <text x="320" y="72" text-anchor="middle" font-family="Arial" font-size="34" font-weight="700" fill="#78350f">Chicken Mandi</text>
+</svg>

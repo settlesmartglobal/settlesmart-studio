@@ -43,6 +43,14 @@ const products = [
   ["Desserts", "Kunafa", 18, true, false, false],
   ["Desserts", "Rice Kheer", 12, true, false, false],
 ];
+const productImages = {
+  "Chicken Biryani": "/uploads/commerce-chicken-biryani.svg",
+  "Fresh Lime Soda": "/uploads/commerce-fresh-lime-soda.svg",
+  "Butter Chicken": "/uploads/commerce-butter-chicken.svg",
+  "Chicken Mandi": "/uploads/commerce-chicken-mandi.svg",
+  "Gulab Jamun": "/uploads/commerce-gulab-jamun.svg",
+};
+const productImagePath = (name) => productImages[name] ?? "/uploads/commerce-placeholder.svg";
 
 async function optionGroup(companyId, name, options, config = {}) {
   const group = await prisma.addOnGroup.upsert({
@@ -68,7 +76,7 @@ async function createOrder(company, branch, customers, riders, catalog, status, 
   const deliveryCharge = index % 3 === 0 ? 0 : 5;
   const totalAmount = subtotal + taxAmount + deliveryCharge;
   const orderNumber = `SS-ORD-20260729-${String(index + 1).padStart(4, "0")}`;
-  const rider = ["RIDER_ASSIGNED", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED", "COMPLETED"].includes(status) ? riders[index % riders.length] : null;
+  const rider = ["RIDER_ASSIGNED", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED", "PAYMENT_COLLECTED", "COMPLETED"].includes(status) ? riders[index % riders.length] : null;
   const existing = await prisma.order.findUnique({ where: { orderNumber } });
   if (existing) return existing;
   return prisma.order.create({
@@ -81,7 +89,7 @@ async function createOrder(company, branch, customers, riders, catalog, status, 
       trackingToken: randomUUID(),
       status,
       paymentMethod: index % 2 ? "CARD_ON_DELIVERY" : "CASH_ON_DELIVERY",
-      paymentStatus: ["DELIVERED", "COMPLETED"].includes(status) ? "COLLECTED" : "PENDING",
+      paymentStatus: ["PAYMENT_COLLECTED", "COMPLETED"].includes(status) ? "COLLECTED" : "PENDING",
       fulfilmentType: rider ? "DELIVERY" : index % 4 === 0 ? "PICKUP" : "DELIVERY",
       subtotal,
       taxAmount,
@@ -90,7 +98,8 @@ async function createOrder(company, branch, customers, riders, catalog, status, 
       totalAmount,
       customerNameSnapshot: customer.name,
       customerMobileSnapshot: customer.mobile,
-      deliveryAddressSnapshotJson: { address: "Al Qusais, Dubai", area: index % 2 ? "Muhaisnah" : "Al Qusais", city: "Dubai", landmark: "Near metro station", deliveryInstructions: "Call on arrival" },
+      deliveryAddressSnapshotJson: { doorOrFlatNumber: "1204", buildingName: "Executive Tower", area: index % 2 ? "Business Bay" : "Al Qusais", city: "Dubai", landmark: "Near metro station", deliveryInstructions: "Call on arrival" },
+      specialInstructions: "No special instructions",
       source: "CUSTOMER_PWA",
       placedAt: new Date(Date.now() - index * 24 * 60 * 1000),
       items: {
@@ -186,12 +195,16 @@ async function main() {
     const [categoryName, name, price, vegetarian, spicyItem, bestseller] = item;
     const product = await prisma.product.upsert({
       where: { companyId_slug: { companyId: company.id, slug: slug(name) } },
-      update: { regularPrice: price, available: true, inStock: true },
-      create: { companyId: company.id, categoryId: categoryMap.get(categoryName).id, name, slug: slug(name), shortDescription: `Freshly prepared ${name} from Dubai Delights.`, description: `${name} served with Dubai Delights care and UAE-friendly portions.`, regularPrice: price, imagePath: "/uploads/commerce-placeholder.svg", vegetarian, spicy: spicyItem, bestseller, featured: bestseller, preparationMinutes: 30, displayOrder },
+      update: { regularPrice: price, available: true, inStock: true, imagePath: productImagePath(name) },
+      create: { companyId: company.id, categoryId: categoryMap.get(categoryName).id, name, slug: slug(name), shortDescription: `Freshly prepared ${name} from Dubai Delights.`, description: `${name} served with Dubai Delights care and UAE-friendly portions.`, regularPrice: price, imagePath: productImagePath(name), vegetarian, spicy: spicyItem, bestseller, featured: bestseller, preparationMinutes: 30, displayOrder },
     });
     catalog.push(product);
-    await prisma.productVariant.upsert({ where: { productId_name: { productId: product.id, name: "Regular" } }, update: {}, create: { productId: product.id, name: "Regular", priceDelta: 0 } });
-    if (categoryName === "Signature Biryani") await prisma.productVariant.upsert({ where: { productId_name: { productId: product.id, name: "Family Pack" } }, update: { priceDelta: 28 }, create: { productId: product.id, name: "Family Pack", priceDelta: 28 } });
+    if (categoryName === "Signature Biryani") {
+      await prisma.productVariant.upsert({ where: { productId_name: { productId: product.id, name: "Regular" } }, update: { active: false }, create: { productId: product.id, name: "Regular", description: "Legacy default", price, priceDelta: 0, active: false, displayOrder: 99 } });
+      await prisma.productVariant.upsert({ where: { productId_name: { productId: product.id, name: "Standard" } }, update: { description: "Serves 1", price, priceDelta: 0, active: true, displayOrder: 0 }, create: { productId: product.id, name: "Standard", description: "Serves 1", price, priceDelta: 0, active: true, displayOrder: 0 } });
+      await prisma.productVariant.upsert({ where: { productId_name: { productId: product.id, name: "Medium" } }, update: { description: "Serves 2", price: price + 8, priceDelta: 8, active: true, displayOrder: 1 }, create: { productId: product.id, name: "Medium", description: "Serves 2", price: price + 8, priceDelta: 8, active: true, displayOrder: 1 } });
+      await prisma.productVariant.upsert({ where: { productId_name: { productId: product.id, name: "Family Pack" } }, update: { description: "Serves 5", price: name === "Chicken Biryani" ? 65 : price + 28, priceDelta: name === "Chicken Biryani" ? 33 : 28, active: true, displayOrder: 2 }, create: { productId: product.id, name: "Family Pack", description: "Serves 5", price: name === "Chicken Biryani" ? 65 : price + 28, priceDelta: name === "Chicken Biryani" ? 33 : 28, active: true, displayOrder: 2 } });
+    }
     for (const group of [spice, extras, drinks]) {
       await prisma.productAddOnGroup.upsert({ where: { productId_groupId: { productId: product.id, groupId: group.id } }, update: {}, create: { productId: product.id, groupId: group.id } });
     }
@@ -220,7 +233,7 @@ async function main() {
     create: { companyId: company.id, code: "WELCOME10", name: "Welcome 10", description: "10% off for demo orders.", type: "PERCENTAGE", percentDiscount: 10, minimumOrder: 30, maximumDiscount: 10, active: true },
   });
 
-  const statuses = ["PENDING", "PENDING", "ACCEPTED", "ACCEPTED", "PREPARING", "PREPARING", "READY", "READY", "RIDER_ASSIGNED", "OUT_FOR_DELIVERY", "DELIVERED", "COMPLETED", "COMPLETED", "REJECTED", "CANCELLED"];
+  const statuses = ["PENDING", "PENDING", "ACCEPTED", "ACCEPTED", "PREPARING", "PREPARING", "READY", "READY", "RIDER_ASSIGNED", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED", "PAYMENT_COLLECTED", "COMPLETED", "REJECTED", "CANCELLED"];
   for (const [index, status] of statuses.entries()) await createOrder(company, branch, customers, riders, catalog, status, index);
 
   await prisma.notificationEvent.create({ data: { companyId: company.id, eventType: "ORDER_CREATED", message: "Commerce demo seed refreshed Dubai Delights Restaurant." } });

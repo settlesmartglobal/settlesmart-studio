@@ -1,15 +1,16 @@
 import type { Metadata, Viewport } from "next";
+import { ServiceWorkerRegistration } from "./components/service-worker-registration";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "SettleSmart Studio",
-  description: "AI-Powered Marketing & Brand Operations Platform by SettleSmart Works",
+  title: "SettleSmart Commerce",
+  description: "Business ordering and operations by SettleSmart Works",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    title: "Studio",
+    title: "SettleSmart Commerce",
     statusBarStyle: "default",
   },
 };
@@ -28,7 +29,7 @@ export default function RootLayout({
       lang="en"
       className="h-full antialiased"
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col"><ServiceWorkerRegistration />{children}</body>
     </html>
   );
 }

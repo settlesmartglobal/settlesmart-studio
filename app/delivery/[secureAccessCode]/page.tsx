@@ -10,17 +10,20 @@ export default async function RiderDeliveryPage({ params }: { params: Promise<{ 
     where: { secureAccessCode },
     include: {
       company: true,
-      orders: {
-        where: { status: { in: ["RIDER_ASSIGNED", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"] } },
-        include: { items: true },
-        orderBy: { placedAt: "asc" },
-        take: 1,
-      },
     },
   });
   if (!rider || !rider.active) notFound();
-  const order = rider.orders[0];
-  const address = order?.deliveryAddressSnapshotJson as { address?: string; area?: string; landmark?: string; deliveryInstructions?: string } | undefined;
+  const order = rider.currentOrderId
+    ? await prisma.order.findFirst({
+        where: { id: rider.currentOrderId, riderId: rider.id, status: { in: ["RIDER_ASSIGNED", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"] } },
+        include: { items: true },
+      })
+    : await prisma.order.findFirst({
+        where: { riderId: rider.id, status: { in: ["RIDER_ASSIGNED", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"] } },
+        include: { items: true },
+        orderBy: { placedAt: "asc" },
+      });
+  const address = order?.deliveryAddressSnapshotJson as { doorOrFlatNumber?: string; buildingName?: string; area?: string; city?: string; landmark?: string; deliveryInstructions?: string } | undefined;
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-6">
       <div className="mx-auto max-w-md space-y-4">
@@ -36,15 +39,18 @@ export default async function RiderDeliveryPage({ params }: { params: Promise<{ 
           <div className="mt-4 rounded-md bg-slate-50 p-4 text-sm">
             <b>{order.customerNameSnapshot}</b>
             <p>{order.customerMobileSnapshot}</p>
-            <p className="mt-2">{address?.address}</p>
+            <p className="mt-2">Door / Flat No.: {address?.doorOrFlatNumber}</p>
+            <p>Building Name: {address?.buildingName}</p>
             <p>{address?.area}</p>
+            <p>{address?.city}</p>
             <p>{address?.landmark}</p>
             <p className="mt-2 text-slate-500">{address?.deliveryInstructions}</p>
+            <p className="mt-2 text-slate-500">Customer instructions: {order.specialInstructions || "No special instructions"}</p>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2">
             <a href={`tel:${order.customerMobileSnapshot}`} className="rounded-md border border-slate-200 px-3 py-2 text-center text-sm font-semibold">Call</a>
             <a href={whatsappLink(order.customerMobileSnapshot, `I am on the way with order ${order.orderNumber}.`)} className="rounded-md border border-slate-200 px-3 py-2 text-center text-sm font-semibold">WhatsApp</a>
-            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${address?.address ?? ""} ${address?.area ?? ""}`)}`} className="rounded-md border border-slate-200 px-3 py-2 text-center text-sm font-semibold">Map</a>
+            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${address?.doorOrFlatNumber ?? ""} ${address?.buildingName ?? ""} ${address?.area ?? ""} ${address?.city ?? ""}`)}`} className="rounded-md border border-slate-200 px-3 py-2 text-center text-sm font-semibold">Map</a>
             <div className="px-3 py-2 text-center text-sm font-semibold text-slate-600">{order.paymentStatus}</div>
           </div>
           <RiderMobileActions orderId={order.id} status={order.status} totalAmount={Number(order.totalAmount)} />

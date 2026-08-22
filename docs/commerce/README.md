@@ -71,10 +71,28 @@ Do not run demo reset or demo seed against production data.
 npx prisma format
 npx prisma validate
 npx prisma generate
+npx prisma migrate status
 npx tsc --noEmit
 npm run lint
+npm test
 npm run build
 ```
+
+## Product Workflow
+
+Commerce uses the restaurant status model `PENDING -> ACCEPTED -> PREPARING -> READY -> RIDER_ASSIGNED -> PICKED_UP -> OUT_FOR_DELIVERY -> DELIVERED -> PAYMENT_COLLECTED -> COMPLETED`, plus terminal `REJECTED` and `CANCELLED`. The transition service validates every move, records status history, updates rider state, persists payment details, and creates notification events.
+
+## WhatsApp
+
+Set `WHATSAPP_PROVIDER` to `development`, `manual`, or `meta`. Development stores/logs safe redacted events. Manual stores `READY_FOR_MANUAL_SEND` with a `wa.me` link. Meta submits approved templates and only marks `SUBMITTED`; delivery/read require webhook callbacks. See `docs/commerce/WHATSAPP_SETUP.md`.
+
+## Roles
+
+V1 role permissions are defined in `src/modules/wave1/roles.ts`: owner, front desk, kitchen, dispatch, and rider. The current single-owner UI remains simple while the role map supports controlled test users.
+
+## Health Check
+
+`GET /api/health` returns application, database, storage, and WhatsApp readiness without exposing secrets.
 
 ## Production Checklist
 
@@ -89,6 +107,6 @@ npm run build
 ## Known Limitations
 
 - Online payment gateways are intentionally not implemented.
-- Notification delivery uses database/logged events only.
+- WhatsApp Cloud API requires approved Meta templates and webhook environment variables before real submission.
 - Real-time kitchen updates are not implemented; refresh-based operation is supported.
 - Demo rider access codes are development-only deterministic tokens.

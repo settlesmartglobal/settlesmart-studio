@@ -8,10 +8,18 @@
 4. Use Cash on Delivery.
 5. Apply `WELCOME10`.
 6. Confirm the order appears in `/commerce?section=orders&status=PENDING`.
-7. Move the order through Accepted, Preparing, Ready, Rider Assigned, Picked Up, Out for Delivery, Delivered, and Completed.
+7. Move the order through Accepted, Preparing, Ready, Rider Assigned, Picked Up, Out for Delivery, Delivered, Payment Collected, and Completed.
 8. Confirm reports update in `/commerce?section=reports`.
 
 Expected: delivery workflow completes and payment can be recorded as collected.
+
+## Required End-to-End Test
+
+Create an order for Arun Kumar, +971500000101, Door / Flat No. 1204, Executive Tower, Business Bay, Dubai, Near Bay Avenue, with instructions `Less spicy. Call before delivery.` Add Chicken Biryani x2 and Fresh Lime Soda x1. Verify WhatsApp confirmation is submitted or manually prepared truthfully, front desk accepts, kitchen prepares, dispatch assigns Ravi Kumar when available, rider completes pickup/out-for-delivery/delivery, payment is collected, receipt becomes available, feedback is submitted, reports update, and rider returns to available.
+
+## Pickup Test
+
+Create a pickup order, progress through accepted, preparing, ready, payment collected, and completed. Verify no rider assignment is required and the receipt is generated only after payment.
 
 ## Scenario B: Pickup and Card Machine
 

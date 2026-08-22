@@ -49,14 +49,15 @@ export function statusTimestamp(status: string) {
 }
 
 const transitions: Record<string, string[]> = {
-  PENDING: ["ACCEPTED", "REJECTED", "CANCELLED"],
+  PENDING: ["ACCEPTED", "REJECTED"],
   ACCEPTED: ["PREPARING", "CANCELLED"],
   PREPARING: ["READY", "CANCELLED"],
-  READY: ["RIDER_ASSIGNED", "PICKED_UP", "COMPLETED", "CANCELLED"],
-  RIDER_ASSIGNED: ["PICKED_UP", "CANCELLED"],
+  READY: ["RIDER_ASSIGNED", "CANCELLED"],
+  RIDER_ASSIGNED: ["PICKED_UP", "READY", "CANCELLED"],
   PICKED_UP: ["OUT_FOR_DELIVERY"],
   OUT_FOR_DELIVERY: ["DELIVERED"],
-  DELIVERED: ["COMPLETED"],
+  DELIVERED: ["PAYMENT_COLLECTED"],
+  PAYMENT_COLLECTED: ["COMPLETED"],
   COMPLETED: [],
   REJECTED: [],
   CANCELLED: [],
@@ -64,6 +65,7 @@ const transitions: Record<string, string[]> = {
 
 export function canTransition(from: string, to: string, fulfilmentType?: string) {
   if (from === to) return true;
+  if (fulfilmentType === "PICKUP" && from === "READY" && to === "PAYMENT_COLLECTED") return true;
   if (fulfilmentType === "PICKUP" && ["RIDER_ASSIGNED", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"].includes(to)) return false;
   return transitions[from]?.includes(to) ?? false;
 }

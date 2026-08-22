@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="Commerce food placeholder">
+  <rect width="1200" height="800" fill="#f8fafc"/>
+  <rect x="80" y="80" width="1040" height="640" rx="32" fill="#ffffff" stroke="#cbd5e1" stroke-width="4"/>
+  <circle cx="600" cy="380" r="170" fill="#ecfdf5" stroke="#0f766e" stroke-width="12"/>
+  <circle cx="600" cy="380" r="108" fill="#f97316" opacity="0.18"/>
+  <path d="M488 406c52 48 172 48 224 0" fill="none" stroke="#0f766e" stroke-width="20" stroke-linecap="round"/>
+  <path d="M520 330h160" stroke="#f97316" stroke-width="22" stroke-linecap="round"/>
+  <text x="600" y="635" text-anchor="middle" fill="#334155" font-family="Arial, sans-serif" font-size="42" font-weight="700">Dubai Delights</text>
+  <text x="600" y="686" text-anchor="middle" fill="#64748b" font-family="Arial, sans-serif" font-size="26">Upload product photography or select approved Studio media</text>
+</svg>

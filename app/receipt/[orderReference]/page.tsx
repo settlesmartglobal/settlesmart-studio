@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/core/database/prisma";
 import { formatMoney } from "@/modules/wave1/utils";
+import { whatsappLink } from "@/modules/wave1/notifications";
+import { ReceiptActions } from "../../components/receipt-actions";
 
 export default async function ReceiptPage({ params, searchParams }: { params: Promise<{ orderReference: string }>; searchParams: Promise<{ token?: string }> }) {
   const { orderReference } = await params;
@@ -9,7 +11,7 @@ export default async function ReceiptPage({ params, searchParams }: { params: Pr
     where: { orderNumber: orderReference, trackingToken: token ?? "" },
     include: { company: true, items: true, branch: true, rider: true },
   });
-  if (!order) notFound();
+  if (!order || !["PAYMENT_COLLECTED", "COMPLETED"].includes(order.status)) notFound();
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 print:bg-white">
       <div className="mx-auto max-w-2xl rounded-lg bg-white p-6 shadow-sm print:shadow-none">
@@ -24,7 +26,9 @@ export default async function ReceiptPage({ params, searchParams }: { params: Pr
           <p><b>Customer:</b> {order.customerNameSnapshot}</p>
           <p><b>Fulfilment:</b> {order.fulfilmentType}</p>
           <p><b>Payment:</b> {order.paymentMethod} · {order.paymentStatus}</p>
+          {order.paymentCollectedAt && <p><b>Paid at:</b> {order.paymentCollectedAt.toLocaleString()}</p>}
           {order.branch && <p><b>Branch:</b> {order.branch.name}</p>}
+          <p><b>Contact:</b> {order.company.phone ?? order.company.whatsapp ?? order.company.email ?? "Restaurant"}</p>
         </section>
         <section className="mt-5">
           <h2 className="font-semibold">Items</h2>
@@ -37,6 +41,7 @@ export default async function ReceiptPage({ params, searchParams }: { params: Pr
           <div className="flex justify-between"><span>Delivery</span><span>AED {formatMoney(order.deliveryCharge)}</span></div>
           <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-semibold"><span>Total</span><span>AED {formatMoney(order.totalAmount)}</span></div>
         </section>
+        <ReceiptActions whatsappUrl={whatsappLink(order.customerMobileSnapshot, `Receipt for ${order.orderNumber}: ${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/receipt/${order.orderNumber}?token=${order.trackingToken}`)} />
       </div>
     </main>
   );

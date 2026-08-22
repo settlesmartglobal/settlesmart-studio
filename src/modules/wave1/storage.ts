@@ -6,21 +6,24 @@ const allowed = new Map([
   ["jpg", "image/jpeg"],
   ["jpeg", "image/jpeg"],
   ["png", "image/png"],
+  ["svg", "image/svg+xml"],
   ["webp", "image/webp"],
+  ["ico", "image/x-icon"],
   ["pdf", "application/pdf"],
   ["mp4", "video/mp4"],
   ["mov", "video/quicktime"],
   ["webm", "video/webm"],
 ]);
 
-export async function storeUpload(file: File, folder: string) {
-  const maxMb = Number(process.env.MAX_UPLOAD_MB ?? 25);
+export async function storeUpload(file: File, folder: string, options: { maxMb?: number; allowedMimeTypes?: string[] } = {}) {
+  const maxMb = options.maxMb ?? Number(process.env.MAX_UPLOAD_MB ?? 25);
   if (file.size > maxMb * 1024 * 1024) throw new Error(`File exceeds ${maxMb}MB`);
 
   const originalFilename = path.basename(file.name);
   const ext = originalFilename.split(".").pop()?.toLowerCase() ?? "";
   const expectedMime = allowed.get(ext);
   if (!expectedMime || expectedMime !== file.type) throw new Error("Unsupported file type");
+  if (options.allowedMimeTypes && !options.allowedMimeTypes.includes(file.type)) throw new Error("Unsupported file type");
 
   const safeFolder = folder.replace(/[^a-z0-9/_-]/gi, "").replace(/\.\./g, "");
   const uploadRoot = process.env.UPLOAD_DIR ?? "public/uploads";

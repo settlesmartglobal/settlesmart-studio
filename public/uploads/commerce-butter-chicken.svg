@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" role="img" aria-label="Butter chicken">
+  <rect width="640" height="360" fill="#fff1f2"/>
+  <ellipse cx="320" cy="218" rx="208" ry="82" fill="#c2410c"/>
+  <ellipse cx="320" cy="205" rx="168" ry="54" fill="#fb923c"/>
+  <circle cx="254" cy="196" r="26" fill="#fed7aa"/>
+  <circle cx="342" cy="216" r="30" fill="#fed7aa"/>
+  <circle cx="402" cy="190" r="22" fill="#fed7aa"/>
+  <text x="320" y="72" text-anchor="middle" font-family="Arial" font-size="34" font-weight="700" fill="#9a3412">Butter Chicken</text>
+</svg>

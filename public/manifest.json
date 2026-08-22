@@ -1,8 +1,9 @@
 {
-  "name": "SettleSmart Studio",
-  "short_name": "Studio",
-  "description": "AI-Powered Marketing & Brand Operations Platform",
+  "name": "SettleSmart Commerce",
+  "short_name": "Commerce",
+  "description": "Customer ordering and business operations by SettleSmart Works",
   "display": "standalone",
+  "scope": "/",
   "start_url": "/",
   "theme_color": "#2563eb",
   "background_color": "#ffffff",
