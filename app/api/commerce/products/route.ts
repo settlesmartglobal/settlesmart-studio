@@ -4,6 +4,11 @@ import { prisma } from "@/core/database/prisma";
 import { productSchema } from "@/modules/wave1/schemas";
 
 const clean = (value: unknown) => (value === "" ? undefined : value);
+const dietary = (classification: unknown, vegetarian: boolean): "VEG" | "NON_VEG" | null => {
+  if (classification === "") return null;
+  if (classification === "VEG" || classification === "NON_VEG") return classification;
+  return vegetarian ? "VEG" : "NON_VEG";
+};
 
 export async function GET(req: Request) {
   const companyId = new URL(req.url).searchParams.get("companyId") ?? undefined;
@@ -18,6 +23,8 @@ export async function POST(req: Request) {
     const product = await prisma.product.create({
       data: {
         ...data,
+        vegetarian: dietary(data.dietaryClassification, data.vegetarian) === "VEG",
+        dietaryClassification: dietary(data.dietaryClassification, data.vegetarian),
         categoryId: clean(data.categoryId) as string | undefined,
         promotionalPrice: clean(data.promotionalPrice) as number | undefined,
         preparationMinutes: clean(data.preparationMinutes) as number | undefined,

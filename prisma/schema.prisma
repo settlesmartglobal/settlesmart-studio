@@ -253,6 +253,11 @@ enum InventoryMode {
   ALWAYS_AVAILABLE
 }
 
+enum DietaryClassification {
+  VEG
+  NON_VEG
+}
+
 model Company {
   id                   String       @id @default(uuid())
   name                 String
@@ -487,39 +492,40 @@ model ProductCategory {
 }
 
 model Product {
-  id                 String              @id @default(uuid())
-  companyId          String
-  company            Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  categoryId         String?
-  category           ProductCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  name               String
-  slug               String
-  shortDescription   String?
-  description        String?
-  regularPrice       Decimal             @db.Decimal(10, 2)
-  promotionalPrice   Decimal?            @db.Decimal(10, 2)
-  imagePath          String?
-  vegetarian         Boolean             @default(false)
-  spicy              Boolean             @default(false)
-  bestseller         Boolean             @default(false)
-  inStock            Boolean             @default(true)
-  inventoryMode      InventoryMode       @default(ALWAYS_AVAILABLE)
-  inventoryQuantity  Int?
-  lowStockThreshold  Int?
-  sku                String?
-  taxable            Boolean             @default(true)
-  studioMediaAssetId String?
-  available          Boolean             @default(true)
-  featured           Boolean             @default(false)
-  preparationMinutes Int?
-  displayOrder       Int                 @default(0)
-  orderItems         OrderItem[]
-  mediaAssets        MediaAsset[]
-  campaigns          StudioCampaign[]
-  variants           ProductVariant[]
-  addOnGroups        ProductAddOnGroup[]
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  id                    String                 @id @default(uuid())
+  companyId             String
+  company               Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  categoryId            String?
+  category              ProductCategory?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  name                  String
+  slug                  String
+  shortDescription      String?
+  description           String?
+  regularPrice          Decimal                @db.Decimal(10, 2)
+  promotionalPrice      Decimal?               @db.Decimal(10, 2)
+  imagePath             String?
+  vegetarian            Boolean                @default(false)
+  dietaryClassification DietaryClassification?
+  spicy                 Boolean                @default(false)
+  bestseller            Boolean                @default(false)
+  inStock               Boolean                @default(true)
+  inventoryMode         InventoryMode          @default(ALWAYS_AVAILABLE)
+  inventoryQuantity     Int?
+  lowStockThreshold     Int?
+  sku                   String?
+  taxable               Boolean                @default(true)
+  studioMediaAssetId    String?
+  available             Boolean                @default(true)
+  featured              Boolean                @default(false)
+  preparationMinutes    Int?
+  displayOrder          Int                    @default(0)
+  orderItems            OrderItem[]
+  mediaAssets           MediaAsset[]
+  campaigns             StudioCampaign[]
+  variants              ProductVariant[]
+  addOnGroups           ProductAddOnGroup[]
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
 
   @@unique([companyId, slug])
   @@index([companyId])
@@ -561,13 +567,14 @@ model AddOnGroup {
 }
 
 model AddOn {
-  id           String     @id @default(uuid())
-  groupId      String
-  group        AddOnGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  name         String
-  price        Decimal    @default(0) @db.Decimal(10, 2)
-  active       Boolean    @default(true)
-  displayOrder Int        @default(0)
+  id                    String                 @id @default(uuid())
+  groupId               String
+  group                 AddOnGroup             @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name                  String
+  price                 Decimal                @default(0) @db.Decimal(10, 2)
+  dietaryClassification DietaryClassification?
+  active                Boolean                @default(true)
+  displayOrder          Int                    @default(0)
 
   @@unique([groupId, name])
   @@index([groupId])

@@ -6,6 +6,7 @@ import { randomUUID } from "crypto";
 import { notifyOrderEvent } from "./notifications";
 import { inventoryUnavailableMessage, isOrderable, reserveTrackedInventory } from "./inventory";
 import { variantSellingPrice, variantSnapshot } from "./variants";
+import { isAddOnCompatibleWithProduct } from "./commerce-rules";
 
 function localDayAndTime(timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date());
@@ -78,7 +79,7 @@ export async function createOrder(input: unknown) {
       const selectedInGroup = (item.addOnIds ?? []).filter((id) => entry.group.addOns.some((addOn) => addOn.id === id && addOn.active));
       if (selectedInGroup.length < entry.group.minSelections || selectedInGroup.length > entry.group.maxSelections) throw new Error(`Choose ${entry.group.minSelections}-${entry.group.maxSelections} options for ${entry.group.name}`);
     }
-    const allowedAddOns = product.addOnGroups.flatMap((entry) => entry.group.addOns.filter((addOn) => addOn.active));
+    const allowedAddOns = product.addOnGroups.flatMap((entry) => entry.group.addOns.filter((addOn) => addOn.active && isAddOnCompatibleWithProduct(product, addOn)));
     const selectedAddOns = (item.addOnIds ?? []).map((id) => {
       const addOn = allowedAddOns.find((candidate) => candidate.id === id);
       if (!addOn) throw new Error("Invalid add-on option");

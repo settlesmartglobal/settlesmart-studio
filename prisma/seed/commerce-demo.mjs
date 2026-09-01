@@ -59,10 +59,11 @@ async function optionGroup(companyId, name, options, config = {}) {
     create: { companyId, name, ...config },
   });
   for (const [optionName, price] of options) {
+    const dietaryClassification = /(chicken|mutton|egg|fish|beef|prawn|shrimp)/i.test(optionName) ? "NON_VEG" : null;
     await prisma.addOn.upsert({
       where: { groupId_name: { groupId: group.id, name: optionName } },
-      update: { price },
-      create: { groupId: group.id, name: optionName, price },
+      update: { price, dietaryClassification },
+      create: { groupId: group.id, name: optionName, price, dietaryClassification },
     });
   }
   return group;

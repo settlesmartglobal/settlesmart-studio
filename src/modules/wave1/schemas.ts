@@ -57,6 +57,7 @@ export const productSchema = z.object({
   promotionalPrice: moneySchema.optional().or(z.literal("")),
   imagePath: optionalText(500),
   vegetarian: z.coerce.boolean().default(false),
+  dietaryClassification: z.enum(["VEG", "NON_VEG"]).optional().or(z.literal("")),
   available: z.coerce.boolean().default(true),
   inventoryMode: z.enum(["TRACK_QUANTITY", "AVAILABILITY_ONLY", "ALWAYS_AVAILABLE"]).default("ALWAYS_AVAILABLE").optional(),
   inventoryQuantity: z.coerce.number().int().min(0).max(999999).optional().or(z.literal("")),

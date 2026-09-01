@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { buildCartLineId, toggleGroupedSelection, upsertCartLine } from "../src/modules/wave1/cart-state.ts";
+import { isAddOnCompatibleWithProduct } from "../src/modules/wave1/commerce-rules.ts";
 
 const schema = readFileSync("prisma/schema.prisma", "utf8");
 const utils = readFileSync("src/modules/wave1/utils.ts", "utf8");
@@ -26,6 +28,8 @@ const offlineNotice = readFileSync("app/components/offline-notice.tsx", "utf8");
 const serviceWorker = readFileSync("public/sw.js", "utf8");
 const manifest = readFileSync("public/manifest.json", "utf8");
 const commercePage = readFileSync("app/commerce/page.tsx", "utf8");
+const productMediaRoute = readFileSync("app/api/commerce/products/[id]/media/route.ts", "utf8");
+const storage = readFileSync("src/modules/wave1/storage.ts", "utf8");
 
 for (const status of ["PENDING", "ACCEPTED", "PREPARING", "READY", "RIDER_ASSIGNED", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED", "PAYMENT_COLLECTED", "COMPLETED", "REJECTED", "CANCELLED"]) {
   assert.match(schema, new RegExp(`\\b${status}\\b`), `${status} is present in Prisma schema`);
@@ -55,10 +59,10 @@ assert.ok(cart.includes("variantId: i.variantId"), "checkout submits selected va
 assert.ok(cart.includes("addOnIds: i.addOns?.map"), "checkout submits selected add-on IDs");
 assert.ok(cart.includes("lineId"), "cart separates different product option combinations");
 assert.ok(cart.includes("basePrice = selectedVariant?.price"), "cart uses selected variant final price as base");
-assert.ok(cart.includes("Add AED ${price.toFixed(2)}"), "cart add button reflects selected variant plus add-ons");
+assert.ok(cart.includes("Add this product · AED ${price.toFixed(2)}"), "cart add button reflects selected variant plus add-ons");
 assert.ok(cart.includes("meaningfulVariants"), "products without meaningful variants do not show a variant dropdown");
 assert.ok(productPage.includes("variants={product.variants.map"), "product page exposes variant choices");
-assert.ok(productPage.includes("addOnGroups={product.addOnGroups.map"), "product page exposes add-on choices");
+assert.ok(productPage.includes("addOnGroups={compatibleAddOnGroups.map"), "product page exposes compatible add-on choices");
 assert.ok(orders.includes("entry.group.minSelections") && orders.includes("entry.group.maxSelections"), "server validates add-on choice limits");
 assert.ok(orders.includes("variantSellingPrice(product, variant)"), "server recalculates selected variant price from DB");
 assert.ok(orders.includes("variantSnapshot(item.product, item.variant)"), "order line snapshots include variant price and label");
@@ -107,5 +111,34 @@ assert.ok(roles.includes("FRONT_DESK") && roles.includes("KITCHEN") && roles.inc
 assert.ok(health.includes("database") && health.includes("whatsapp"), "health check covers database and WhatsApp readiness");
 assert.ok(schema.includes("whatsappOperationalConsent"), "customer WhatsApp operational consent is stored");
 assert.ok(schema.includes("WhatsAppInboundMessage"), "inbound WhatsApp messages are stored without changing order status");
+assert.ok(schema.includes("enum DietaryClassification") && schema.includes("dietaryClassification DietaryClassification?"), "dietary classification is modeled additively");
+assert.ok(cart.includes("detailsKey(slug)") && cart.includes("localStorage.setItem(detailsKey(slug)") && cart.includes("latitude: String(form.latitude"), "returning customer details include address and coordinates per merchant slug");
+assert.ok(cart.includes("window.isSecureContext") && cart.includes("Location permission was denied.") && cart.includes("Location request timed out."), "current-location flow has truthful browser errors");
+assert.ok(cart.includes("Added to cart") && cart.includes("Add this product") && cart.includes("adding ?"), "add-to-cart has visible confirmation and rapid duplicate protection");
+assert.ok(productPage.includes("isAddOnCompatibleWithProduct") && orders.includes("isAddOnCompatibleWithProduct(product, addOn)"), "VEG/NON_VEG modifier filtering is enforced in UI and checkout");
+assert.ok(commerceActions.includes("Image / Media") && commerceActions.includes("Remove Image") && commerceActions.includes("/media"), "Commerce backend product media management is present");
+assert.ok(productMediaRoute.includes("findFirst({ where: { id, companyId }") && productMediaRoute.includes("COMMERCE_PRODUCT_IMAGE") && productMediaRoute.includes("Product not found for selected company"), "product media is tenant-scoped and product-associated");
+assert.ok(storage.includes("storeCommerceImage") && storage.includes(".webp") && storage.includes("File exceeds 8MB") && storage.includes("Unsupported file type"), "Commerce image uploads are validated and optimized locally");
+assert.ok(commerceActions.includes("role=\"radiogroup\"") && commerceActions.includes("1: \"Poor\"") && commerceActions.includes("5: \"Excellent\""), "feedback uses accessible five-star rating labels");
+
+const multi = toggleGroupedSelection(["extra-chicken"], ["extra-chicken", "boiled-egg", "raita"], "boiled-egg", true, 4);
+assert.deepEqual(multi, ["extra-chicken", "boiled-egg"], "multi-select modifier groups retain multiple choices");
+const single = toggleGroupedSelection(["medium"], ["small", "medium", "large"], "large", true, 1);
+assert.deepEqual(single, ["large"], "single-select modifier groups remain single-select");
+assert.equal(isAddOnCompatibleWithProduct({ vegetarian: true, dietaryClassification: "VEG" }, { name: "Extra Chicken", dietaryClassification: "NON_VEG" }), false, "VEG product does not expose NON_VEG-only modifiers");
+assert.equal(isAddOnCompatibleWithProduct({ vegetarian: false, dietaryClassification: "NON_VEG" }, { name: "Boiled Egg", dietaryClassification: "NON_VEG" }), true, "NON_VEG product can use permitted non-veg modifiers");
+
+let acceptanceCart = [];
+acceptanceCart = upsertCartLine(acceptanceCart, { productId: "chicken-biryani", lineId: buildCartLineId("chicken-biryani", "standard", ["extra-chicken", "boiled-egg"]), name: "Chicken Biryani", price: 61, addOns: [{ id: "extra-chicken", name: "Extra Chicken", price: 8 }, { id: "boiled-egg", name: "Boiled Egg", price: 3 }] });
+acceptanceCart = upsertCartLine(acceptanceCart, { productId: "vegetable-biryani", lineId: buildCartLineId("vegetable-biryani", "standard", []), name: "Vegetable Biryani", price: 36, addOns: [] });
+acceptanceCart = upsertCartLine(acceptanceCart, { productId: "raita", lineId: buildCartLineId("raita"), name: "Raita", price: 6 });
+acceptanceCart = upsertCartLine(acceptanceCart, { productId: "water-bottle", lineId: buildCartLineId("water-bottle"), name: "Water Bottle", price: 3 });
+acceptanceCart = upsertCartLine(acceptanceCart, { productId: "soda", lineId: buildCartLineId("soda"), name: "Soda", price: 5 });
+assert.equal(acceptanceCart.length, 5, "Chicken Biryani, Vegetable Biryani, Raita, Water Bottle and Soda remain in the same cart");
+assert.deepEqual(acceptanceCart[0].addOns.map((addOn) => addOn.name), ["Extra Chicken", "Boiled Egg"], "Chicken Biryani retains Extra Chicken and Boiled Egg");
+assert.deepEqual(acceptanceCart[1].addOns, [], "Vegetable Biryani remains independent and inherits no chicken/egg modifiers");
+acceptanceCart = upsertCartLine(acceptanceCart, { productId: "chicken-biryani", lineId: buildCartLineId("chicken-biryani", "standard", ["extra-chicken", "boiled-egg"]), name: "Chicken Biryani", price: 61, addOns: acceptanceCart[0].addOns });
+assert.equal(acceptanceCart.length, 5, "intentional same-line increase does not create duplicate line records");
+assert.equal(acceptanceCart[0].quantity, 2, "same configured line increases quantity only when explicitly added again");
 
 console.log("Commerce workflow contract tests passed.");

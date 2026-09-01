@@ -15,6 +15,12 @@ const variantSchema = z.object({
   displayOrder: z.coerce.number().int().min(0).max(9999).default(0),
 });
 
+const dietary = (classification: unknown, vegetarian: boolean): "VEG" | "NON_VEG" | null => {
+  if (classification === "") return null;
+  if (classification === "VEG" || classification === "NON_VEG") return classification;
+  return vegetarian ? "VEG" : "NON_VEG";
+};
+
 const productActionSchema = z.object({
   action: z.enum(["DUPLICATE", "SET_STOCK", "SET_ACTIVE", "UPDATE", "ADD_STOCK", "ADJUST_STOCK"]),
   inStock: z.coerce.boolean().optional(),
@@ -54,6 +60,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         sku: product.sku ? `${product.sku}-copy` : null,
         taxable: product.taxable,
         studioMediaAssetId: product.studioMediaAssetId,
+        dietaryClassification: product.dietaryClassification,
         available: false,
         featured: false,
         preparationMinutes: product.preparationMinutes,
@@ -83,7 +90,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           regularPrice: data.regularPrice,
           promotionalPrice: data.promotionalPrice || null,
           imagePath: data.imagePath,
-          vegetarian: data.vegetarian,
+          vegetarian: dietary(data.dietaryClassification, Boolean(data.vegetarian)) === "VEG",
+          dietaryClassification: dietary(data.dietaryClassification, Boolean(data.vegetarian)),
           available: data.available,
           inventoryMode: data.inventoryMode,
           inventoryQuantity: data.inventoryQuantity === "" ? null : data.inventoryQuantity,
