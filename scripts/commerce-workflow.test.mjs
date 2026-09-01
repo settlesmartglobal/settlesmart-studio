@@ -28,6 +28,7 @@ const offlineNotice = readFileSync("app/components/offline-notice.tsx", "utf8");
 const serviceWorker = readFileSync("public/sw.js", "utf8");
 const manifest = readFileSync("public/manifest.json", "utf8");
 const commercePage = readFileSync("app/commerce/page.tsx", "utf8");
+const liveRefresh = readFileSync("app/components/live-refresh.tsx", "utf8");
 const productMediaRoute = readFileSync("app/api/commerce/products/[id]/media/route.ts", "utf8");
 const storage = readFileSync("src/modules/wave1/storage.ts", "utf8");
 
@@ -101,6 +102,8 @@ assert.ok(seed.includes('name: "Family Pack", description: "Serves 5"'), "demo s
 assert.ok(seed.includes('name === "Chicken Biryani" ? 65 : price + 28'), "demo seed preserves final Chicken Family Pack price");
 assert.ok(seed.includes('name: "Regular"') && seed.includes("active: false"), "confusing Regular demo variant is preserved inactive");
 assert.ok(seed.includes('"Fresh Lime Soda": "/uploads/commerce-fresh-lime-soda.svg"'), "Fresh Lime Soda has a seeded image");
+assert.ok(seed.includes('"Choose Drink"') && seed.includes('multipleSelection: true, minSelections: 0, maxSelections: 3') && seed.includes('"Water Bottle"') && seed.includes('"Soda"'), "demo Choose Drink allows multiple drink selections");
+assert.ok(liveRefresh.includes('useState<string | null>(null)') && liveRefresh.includes('"Last updated --:--:--"') && liveRefresh.includes('setLastUpdated(formatRefreshTime(new Date()))'), "LiveRefresh uses deterministic initial hydration text");
 assert.ok(notifications.includes("WHATSAPP_PROVIDER"), "WhatsApp provider selection is environment-driven");
 assert.ok(notifications.includes("commerce_payment_receipt"), "payment receipt template is mapped");
 assert.ok(notifications.includes("SKIPPED_NO_CONSENT"), "WhatsApp consent is enforced");
@@ -123,21 +126,25 @@ assert.ok(commerceActions.includes("role=\"radiogroup\"") && commerceActions.inc
 
 const multi = toggleGroupedSelection(["extra-chicken"], ["extra-chicken", "boiled-egg", "raita"], "boiled-egg", true, 4);
 assert.deepEqual(multi, ["extra-chicken", "boiled-egg"], "multi-select modifier groups retain multiple choices");
+const drinks = toggleGroupedSelection(["water-bottle"], ["water-bottle", "soda", "fresh-lime-soda"], "soda", true, 3);
+assert.deepEqual(drinks, ["water-bottle", "soda"], "Choose Drink allows Water Bottle and Soda simultaneously");
+const drinkMax = toggleGroupedSelection(["water-bottle", "soda", "fresh-lime-soda"], ["water-bottle", "soda", "fresh-lime-soda"], "juice", true, 3);
+assert.deepEqual(drinkMax, ["water-bottle", "soda", "fresh-lime-soda"], "max selection is respected for multi-select groups");
 const single = toggleGroupedSelection(["medium"], ["small", "medium", "large"], "large", true, 1);
 assert.deepEqual(single, ["large"], "single-select modifier groups remain single-select");
 assert.equal(isAddOnCompatibleWithProduct({ vegetarian: true, dietaryClassification: "VEG" }, { name: "Extra Chicken", dietaryClassification: "NON_VEG" }), false, "VEG product does not expose NON_VEG-only modifiers");
 assert.equal(isAddOnCompatibleWithProduct({ vegetarian: false, dietaryClassification: "NON_VEG" }, { name: "Boiled Egg", dietaryClassification: "NON_VEG" }), true, "NON_VEG product can use permitted non-veg modifiers");
 
 let acceptanceCart = [];
-acceptanceCart = upsertCartLine(acceptanceCart, { productId: "chicken-biryani", lineId: buildCartLineId("chicken-biryani", "standard", ["extra-chicken", "boiled-egg"]), name: "Chicken Biryani", price: 61, addOns: [{ id: "extra-chicken", name: "Extra Chicken", price: 8 }, { id: "boiled-egg", name: "Boiled Egg", price: 3 }] });
+acceptanceCart = upsertCartLine(acceptanceCart, { productId: "chicken-biryani", lineId: buildCartLineId("chicken-biryani", "standard", ["extra-chicken", "boiled-egg", "water-bottle", "soda"]), name: "Chicken Biryani", price: 73, addOns: [{ id: "extra-chicken", name: "Extra Chicken", price: 8 }, { id: "boiled-egg", name: "Boiled Egg", price: 3 }, { id: "water-bottle", name: "Water Bottle", price: 4 }, { id: "soda", name: "Soda", price: 8 }] });
 acceptanceCart = upsertCartLine(acceptanceCart, { productId: "vegetable-biryani", lineId: buildCartLineId("vegetable-biryani", "standard", []), name: "Vegetable Biryani", price: 36, addOns: [] });
 acceptanceCart = upsertCartLine(acceptanceCart, { productId: "raita", lineId: buildCartLineId("raita"), name: "Raita", price: 6 });
 acceptanceCart = upsertCartLine(acceptanceCart, { productId: "water-bottle", lineId: buildCartLineId("water-bottle"), name: "Water Bottle", price: 3 });
 acceptanceCart = upsertCartLine(acceptanceCart, { productId: "soda", lineId: buildCartLineId("soda"), name: "Soda", price: 5 });
 assert.equal(acceptanceCart.length, 5, "Chicken Biryani, Vegetable Biryani, Raita, Water Bottle and Soda remain in the same cart");
-assert.deepEqual(acceptanceCart[0].addOns.map((addOn) => addOn.name), ["Extra Chicken", "Boiled Egg"], "Chicken Biryani retains Extra Chicken and Boiled Egg");
+assert.deepEqual(acceptanceCart[0].addOns.map((addOn) => addOn.name), ["Extra Chicken", "Boiled Egg", "Water Bottle", "Soda"], "Chicken Biryani retains Extra Chicken, Boiled Egg, Water Bottle and Soda");
 assert.deepEqual(acceptanceCart[1].addOns, [], "Vegetable Biryani remains independent and inherits no chicken/egg modifiers");
-acceptanceCart = upsertCartLine(acceptanceCart, { productId: "chicken-biryani", lineId: buildCartLineId("chicken-biryani", "standard", ["extra-chicken", "boiled-egg"]), name: "Chicken Biryani", price: 61, addOns: acceptanceCart[0].addOns });
+acceptanceCart = upsertCartLine(acceptanceCart, { productId: "chicken-biryani", lineId: buildCartLineId("chicken-biryani", "standard", ["extra-chicken", "boiled-egg", "water-bottle", "soda"]), name: "Chicken Biryani", price: 73, addOns: acceptanceCart[0].addOns });
 assert.equal(acceptanceCart.length, 5, "intentional same-line increase does not create duplicate line records");
 assert.equal(acceptanceCart[0].quantity, 2, "same configured line increases quantity only when explicitly added again");
 

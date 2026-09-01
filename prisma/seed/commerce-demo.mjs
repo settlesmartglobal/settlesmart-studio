@@ -189,7 +189,7 @@ async function main() {
 
   const spice = await optionGroup(company.id, "Choose Spice Level", [["Mild", 0], ["Medium", 0], ["Spicy", 0]], { required: true, minSelections: 1, maxSelections: 1 });
   const extras = await optionGroup(company.id, "Add Extras", [["Extra Chicken", 8], ["Extra Gravy", 4], ["Boiled Egg", 3], ["Raita", 2]], { multipleSelection: true, maxSelections: 4 });
-  const drinks = await optionGroup(company.id, "Choose Drink", [["Water", 4], ["Soft Drink", 8], ["Fresh Lime Soda", 10]], { maxSelections: 1 });
+  const drinks = await optionGroup(company.id, "Choose Drink", [["Water Bottle", 4], ["Soda", 8], ["Fresh Lime Soda", 10]], { multipleSelection: true, minSelections: 0, maxSelections: 3 });
 
   const catalog = [];
   for (const [displayOrder, item] of products.entries()) {
