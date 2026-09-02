@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/core/database/prisma";
+import { normalizeOrderPrefix } from "@/modules/wave1/utils";
 import { z } from "zod";
 
 const optional = z.string().trim().optional().or(z.literal(""));
@@ -12,8 +13,12 @@ const settingsSchema = z.object({
   whatsapp: optional,
   email: z.string().email().optional().or(z.literal("")),
   address: optional,
+  country: optional,
+  currencyCode: z.string().trim().min(3).max(3).default("AED"),
+  orderPrefix: z.string().trim().regex(/^[A-Za-z0-9]{2,8}$/).default("SS"),
+  region: optional,
   city: optional,
-  area: optional,
+  postalCode: optional,
   latitude: z.coerce.number().min(-90).max(90).optional().or(z.literal("")),
   longitude: z.coerce.number().min(-180).max(180).optional().or(z.literal("")),
   currency: z.string().min(2).max(8).default("AED"),
@@ -45,6 +50,8 @@ export async function PUT(req: Request) {
   const result = settingsSchema.safeParse(await req.json());
   if (!result.success) return NextResponse.json({ errors: result.error.flatten() }, { status: 400 });
   const data = result.data;
+  const currencyCode = data.currencyCode.toUpperCase();
+  const orderPrefix = normalizeOrderPrefix(data.orderPrefix, data.name);
   const branch = await prisma.branch.findFirst({ where: { companyId: data.companyId }, orderBy: { createdAt: "asc" } });
   const updated = await prisma.$transaction(async (tx) => {
     const company = await tx.company.update({
@@ -56,7 +63,12 @@ export async function PUT(req: Request) {
         whatsapp: data.whatsapp || null,
         email: data.email || null,
         address: data.address || null,
+        country: data.country || null,
+        currencyCode,
+        orderPrefix,
+        region: data.region || null,
         city: data.city || null,
+        postalCode: data.postalCode || null,
         latitude: numberOrNull(data.latitude),
         longitude: numberOrNull(data.longitude),
       },
@@ -67,7 +79,7 @@ export async function PUT(req: Request) {
         companyId: data.companyId,
         displayName: data.name,
         description: data.description || null,
-        currency: data.currency,
+        currency: currencyCode,
         timezone: data.timezone,
         taxPercentage: data.taxPercentage,
         minimumOrderAmount: data.minimumOrderAmount,
@@ -90,7 +102,7 @@ export async function PUT(req: Request) {
       update: {
         displayName: data.name,
         description: data.description || null,
-        currency: data.currency,
+        currency: currencyCode,
         timezone: data.timezone,
         taxPercentage: data.taxPercentage,
         minimumOrderAmount: data.minimumOrderAmount,
@@ -116,7 +128,10 @@ export async function PUT(req: Request) {
         where: { id: branch.id },
         data: {
           address: data.address || null,
+          country: data.country || null,
+          region: data.region || null,
           city: data.city || null,
+          postalCode: data.postalCode || null,
           latitude: numberOrNull(data.latitude),
           longitude: numberOrNull(data.longitude),
           phone: data.phone || null,

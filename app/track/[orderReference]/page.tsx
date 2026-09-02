@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/core/database/prisma";
+import { formatCommerceMoney } from "@/modules/wave1/utils";
 import { LiveRefresh } from "../../components/live-refresh";
 import { FeedbackForm } from "../../components/commerce-actions";
 
@@ -24,7 +25,7 @@ export default async function PublicTrackPage({ params, searchParams }: { params
         <p className="mt-2 text-lg font-semibold">{order.status.replaceAll("_", " ")}</p>
         <div className="mt-5 rounded-md bg-slate-50 p-4 text-sm">
           <p>{order.fulfilmentType} · {order.paymentMethod} · {order.paymentStatus}</p>
-          <p className="mt-1">Total AED {Number(order.totalAmount).toFixed(2)}</p>
+          <p className="mt-1">Total {formatCommerceMoney(order.totalAmount, order.company.currencyCode)}</p>
           <p className="mt-1">Customer instructions: {order.specialInstructions || "No special instructions"}</p>
           {order.rider && <p className="mt-1">Rider: {order.rider.name}</p>}
         </div>

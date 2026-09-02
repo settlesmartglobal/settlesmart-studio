@@ -19,6 +19,22 @@ export function formatMoney(value: Prisma.Decimal | number | string | null | und
   return money(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+export function formatCommerceMoney(value: Prisma.Decimal | number | string | null | undefined, currencyCode?: string | null) {
+  const code = (currencyCode || "AED").trim().toUpperCase();
+  const fractionDigits = code === "OMR" ? 3 : new Intl.NumberFormat("en-US", { style: "currency", currency: code }).resolvedOptions().maximumFractionDigits;
+  const amount = money(value).toLocaleString("en-US", { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits });
+  const prefixes: Record<string, string> = { INR: "₹", GBP: "£", USD: "$" };
+  return `${prefixes[code] ?? code} ${amount}`;
+}
+
+export function normalizeOrderPrefix(value: string | null | undefined, fallbackName = "SS") {
+  const normalized = (value || fallbackName)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 8);
+  return normalized.length >= 2 ? normalized : "SS";
+}
+
 export function haversineDistanceKm(
   a: { latitude: number; longitude: number },
   b: { latitude: number; longitude: number },

@@ -35,14 +35,18 @@ export function OrderActionButtons({
   orderId,
   status,
   fulfilmentType,
+  companyId,
   riders = [],
   receiptHref,
+  blockedActions = {},
 }: {
   orderId: string;
   status: string;
   fulfilmentType: string;
+  companyId?: string;
   riders?: Rider[];
   receiptHref?: string;
+  blockedActions?: Record<string, string>;
 }) {
   const router = useRouter();
   const [message, setMessage] = useState("");
@@ -60,6 +64,10 @@ export function OrderActionButtons({
     status === "PAYMENT_COLLECTED" ? ["COMPLETED"] : [];
 
   async function run(nextStatus: string) {
+    if (blockedActions[nextStatus]) {
+      setError(blockedActions[nextStatus]);
+      return;
+    }
     setBusy(nextStatus);
     setError("");
     setMessage("");
@@ -70,7 +78,7 @@ export function OrderActionButtons({
       return;
     }
     try {
-      await patchOrder(orderId, { status: nextStatus, riderId: nextStatus === "RIDER_ASSIGNED" ? riderId : undefined, reason: requiresReason ? reason : undefined });
+      await patchOrder(orderId, { status: nextStatus, companyId, riderId: nextStatus === "RIDER_ASSIGNED" ? riderId : undefined, reason: requiresReason ? reason : undefined });
       setMessage(`${labels[nextStatus]} saved`);
       router.refresh();
     } catch (err) {
@@ -85,7 +93,7 @@ export function OrderActionButtons({
       {(actions.includes("RIDER_ASSIGNED") || status === "RIDER_ASSIGNED") && <select value={riderId} onChange={(event) => setRiderId(event.target.value)} className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"><option value="">Select available rider</option>{riders.map((rider) => <option key={rider.id} value={rider.id} disabled={rider.active === false || rider.availabilityStatus !== "AVAILABLE"}>{rider.name} · {rider.mobile ?? "No mobile"} · {rider.vehicleType ?? "Vehicle"} · {rider.availabilityStatus}</option>)}</select>}
       {(actions.includes("REJECTED") || actions.includes("CANCELLED")) && <input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Reason required for reject/cancel" className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm" />}
       <div className="flex flex-wrap gap-2 text-xs">
-        {actions.map((nextStatus) => nextStatus === "PAYMENT_COLLECTED" ? null : <button key={nextStatus} disabled={busy !== ""} onClick={() => run(nextStatus)} className="rounded bg-slate-950 px-3 py-2 font-semibold text-white disabled:opacity-50">{busy === nextStatus ? "Saving..." : status === "RIDER_ASSIGNED" && nextStatus === "RIDER_ASSIGNED" ? "Reassign Rider" : labels[nextStatus]}</button>)}
+        {actions.map((nextStatus) => nextStatus === "PAYMENT_COLLECTED" ? null : <button key={nextStatus} disabled={busy !== "" || Boolean(blockedActions[nextStatus])} title={blockedActions[nextStatus]} onClick={() => run(nextStatus)} className="rounded bg-slate-950 px-3 py-2 font-semibold text-white disabled:opacity-50">{busy === nextStatus ? "Saving..." : status === "RIDER_ASSIGNED" && nextStatus === "RIDER_ASSIGNED" ? "Reassign Rider" : labels[nextStatus]}</button>)}
         {status === "REJECTED" && <span className="rounded bg-slate-100 px-3 py-2 font-semibold text-slate-700">View Reason</span>}
         {status === "CANCELLED" && <span className="rounded bg-slate-100 px-3 py-2 font-semibold text-slate-700">View Reason</span>}
         {["PAYMENT_COLLECTED", "COMPLETED"].includes(status) && receiptHref && <Link href={receiptHref} className="rounded bg-slate-100 px-3 py-2 font-semibold text-slate-800">View Receipt</Link>}
@@ -96,7 +104,7 @@ export function OrderActionButtons({
   );
 }
 
-export function PaymentRecordForm({ orderId, totalAmount }: { orderId: string; totalAmount: number }) {
+export function PaymentRecordForm({ orderId, totalAmount, companyId }: { orderId: string; totalAmount: number; companyId: string }) {
   const router = useRouter();
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -107,7 +115,7 @@ export function PaymentRecordForm({ orderId, totalAmount }: { orderId: string; t
       setError("");
       const form = Object.fromEntries(new FormData(event.currentTarget));
       try {
-        await patchOrder(orderId, { status: "PAYMENT_COLLECTED", paymentStatus: "COLLECTED", paymentMethod: form.paymentMethod, amountCollected: form.amountCollected, paymentCollectedBy: form.paymentCollectedBy, paymentNotes: form.paymentNotes });
+        await patchOrder(orderId, { status: "PAYMENT_COLLECTED", companyId, paymentStatus: "COLLECTED", paymentMethod: form.paymentMethod, amountCollected: form.amountCollected, paymentCollectedBy: form.paymentCollectedBy, paymentNotes: form.paymentNotes });
         setMessage("Payment collected and receipt prepared");
         router.refresh();
       } catch (err) {
@@ -125,14 +133,14 @@ export function PaymentRecordForm({ orderId, totalAmount }: { orderId: string; t
   );
 }
 
-export function RiderMobileActions({ orderId, status, totalAmount }: { orderId: string; status: string; totalAmount: number }) {
+export function RiderMobileActions({ orderId, status, totalAmount, companyId }: { orderId: string; status: string; totalAmount: number; companyId: string }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const actions = status === "RIDER_ASSIGNED" ? [["PICKED_UP", "Picked Up"]] : status === "PICKED_UP" ? [["OUT_FOR_DELIVERY", "Out for Delivery"]] : status === "OUT_FOR_DELIVERY" ? [["DELIVERED", "Delivered"]] : [];
   async function run(nextStatus: string, extra: Record<string, unknown> = {}) {
     setError("");
     try {
-      await patchOrder(orderId, { status: nextStatus, ...extra });
+      await patchOrder(orderId, { status: nextStatus, companyId, ...extra });
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed");

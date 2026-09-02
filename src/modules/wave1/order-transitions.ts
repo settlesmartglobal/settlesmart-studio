@@ -1,6 +1,6 @@
 import { Prisma, type OrderStatus, type PaymentMethod, type PrismaClient } from "@prisma/client";
 import { randomUUID } from "crypto";
-import { appUrl, canTransition, formatMoney, money, statusTimestamp } from "./utils";
+import { appUrl, canTransition, formatCommerceMoney, money, statusTimestamp } from "./utils";
 import { notifyOrderEvent, receiptTemplateVariables } from "./notifications";
 import { RESTOCKABLE_ORDER_STATUSES, restoreTrackedInventoryForOrder } from "./inventory";
 
@@ -117,7 +117,7 @@ export async function transitionOrder(prisma: PrismaClient, input: TransitionInp
     }
     if (paymentCollected) {
       const receiptUrl = `${appUrl()}/receipt/${existing.orderNumber}?token=${existing.trackingToken}`;
-      const receiptMessage = `Hello ${existing.customerNameSnapshot},\n\nPayment has been received for order ${existing.orderNumber}.\n\nAmount paid: AED ${formatMoney(input.amountCollected || existing.totalAmount)}\nPayment method: ${paymentLabel(existing.paymentMethod)}\n\nView your receipt:\n${receiptUrl}\n\nThank you for ordering with ${restaurantName}.`;
+      const receiptMessage = `Hello ${existing.customerNameSnapshot},\n\nPayment has been received for order ${existing.orderNumber}.\n\nAmount paid: ${formatCommerceMoney(input.amountCollected || existing.totalAmount, existing.company.currencyCode)}\nPayment method: ${paymentLabel(existing.paymentMethod)}\n\nView your receipt:\n${receiptUrl}\n\nThank you for ordering with ${restaurantName}.`;
       const templateVariables = receiptTemplateVariables(existing);
       await notifyOrderEvent({
         tx,

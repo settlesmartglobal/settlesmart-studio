@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import type { NotificationEventType, Prisma } from "@prisma/client";
-import { appUrl, formatMoney } from "./utils";
+import { appUrl, formatCommerceMoney } from "./utils";
 
 export type NotificationStatus = "PENDING" | "READY_FOR_MANUAL_SEND" | "SUBMITTING" | "SUBMITTED" | "DELIVERED" | "READ" | "FAILED" | "FAILED_VALIDATION" | "SKIPPED_NO_CONSENT" | "SKIPPED_NO_PROVIDER";
 type Provider = "development" | "manual" | "meta";
@@ -179,13 +179,13 @@ export async function updateNotificationStatus(tx: Prisma.TransactionClient, pro
   });
 }
 
-export function receiptTemplateVariables(order: { customerNameSnapshot: string; orderNumber: string; totalAmount: unknown; paymentMethod: string; trackingToken: string; company: { name: string; commerceSettings?: { displayName: string | null } | null } }) {
+export function receiptTemplateVariables(order: { customerNameSnapshot: string; orderNumber: string; totalAmount: unknown; paymentMethod: string; trackingToken: string; company: { name: string; currencyCode?: string | null; commerceSettings?: { displayName: string | null } | null } }) {
   const receiptUrl = `${appUrl()}/receipt/${order.orderNumber}?token=${order.trackingToken}`;
   return {
     customerName: order.customerNameSnapshot,
     orderNumber: order.orderNumber,
     restaurantName: order.company.commerceSettings?.displayName ?? order.company.name,
-    amount: formatMoney(order.totalAmount as never),
+    amount: formatCommerceMoney(order.totalAmount as never, order.company.currencyCode),
     paymentMethod: order.paymentMethod.replaceAll("_", " "),
     receiptUrl,
   };

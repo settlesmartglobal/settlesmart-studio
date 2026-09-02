@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/core/database/prisma";
-import { formatMoney } from "@/modules/wave1/utils";
+import { formatCommerceMoney } from "@/modules/wave1/utils";
 import { whatsappLink } from "@/modules/wave1/notifications";
 import { ReceiptActions } from "../../components/receipt-actions";
 
@@ -32,14 +32,14 @@ export default async function ReceiptPage({ params, searchParams }: { params: Pr
         </section>
         <section className="mt-5">
           <h2 className="font-semibold">Items</h2>
-          <div className="mt-2 space-y-2 text-sm">{order.items.map((item) => <div key={item.id} className="flex justify-between border-b border-slate-100 py-2"><span>{item.quantity}x {item.productNameSnapshot}</span><span>AED {formatMoney(item.lineTotal)}</span></div>)}</div>
+          <div className="mt-2 space-y-2 text-sm">{order.items.map((item) => <div key={item.id} className="flex justify-between border-b border-slate-100 py-2"><span>{item.quantity}x {item.productNameSnapshot}</span><span>{formatCommerceMoney(item.lineTotal, order.company.currencyCode)}</span></div>)}</div>
         </section>
         <section className="mt-5 space-y-1 text-sm">
-          <div className="flex justify-between"><span>Subtotal</span><span>AED {formatMoney(order.subtotal)}</span></div>
-          <div className="flex justify-between"><span>Discount</span><span>AED {formatMoney(order.discountAmount)}</span></div>
-          <div className="flex justify-between"><span>Tax</span><span>AED {formatMoney(order.taxAmount)}</span></div>
-          <div className="flex justify-between"><span>Delivery</span><span>AED {formatMoney(order.deliveryCharge)}</span></div>
-          <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-semibold"><span>Total</span><span>AED {formatMoney(order.totalAmount)}</span></div>
+          <div className="flex justify-between"><span>Subtotal</span><span>{formatCommerceMoney(order.subtotal, order.company.currencyCode)}</span></div>
+          <div className="flex justify-between"><span>Discount</span><span>{formatCommerceMoney(order.discountAmount, order.company.currencyCode)}</span></div>
+          <div className="flex justify-between"><span>Tax</span><span>{formatCommerceMoney(order.taxAmount, order.company.currencyCode)}</span></div>
+          <div className="flex justify-between"><span>Delivery</span><span>{formatCommerceMoney(order.deliveryCharge, order.company.currencyCode)}</span></div>
+          <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-semibold"><span>Total</span><span>{formatCommerceMoney(order.totalAmount, order.company.currencyCode)}</span></div>
         </section>
         <ReceiptActions whatsappUrl={whatsappLink(order.customerMobileSnapshot, `Receipt for ${order.orderNumber}: ${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/receipt/${order.orderNumber}?token=${order.trackingToken}`)} />
       </div>

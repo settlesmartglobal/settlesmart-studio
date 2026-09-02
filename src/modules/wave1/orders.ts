@@ -1,12 +1,14 @@
 import { prisma } from "@/core/database/prisma";
 import { checkoutSchema } from "./schemas";
-import { haversineDistanceKm, money } from "./utils";
+import { money } from "./utils";
 import { Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { notifyOrderEvent } from "./notifications";
 import { inventoryUnavailableMessage, isOrderable, reserveTrackedInventory } from "./inventory";
 import { variantSellingPrice, variantSnapshot } from "./variants";
 import { isAddOnCompatibleWithProduct } from "./commerce-rules";
+import { merchantOrderNumber, orderSequenceDate } from "./order-numbering";
+import { deliveryServiceability } from "./serviceability";
 
 function localDayAndTime(timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date());
@@ -95,22 +97,27 @@ export async function createOrder(input: unknown) {
 
   let deliveryCharge = 0;
   if (data.fulfilmentType === "DELIVERY") {
-    const zone = company.deliveryZones[0];
-    const hasCoords = company.latitude && company.longitude && data.address.latitude !== "" && data.address.longitude !== "";
-    if (zone && hasCoords) {
-      const distance = haversineDistanceKm(
-        { latitude: money(company.latitude), longitude: money(company.longitude) },
-        { latitude: Number(data.address.latitude), longitude: Number(data.address.longitude) },
-      );
-      if (distance > money(zone.radiusKm)) {
+    const zone = company.deliveryZones.find((candidate) => candidate.name === data.address.area);
+    if (company.deliveryZones.length > 0 && !zone) {
+      return { ok: false as const, status: 400, body: { error: "Selected delivery area is not serviceable by this business." } };
+    }
+    const originLatitude = company.latitude ?? branch?.latitude;
+    const originLongitude = company.longitude ?? branch?.longitude;
+    const radiusKm = money(zone?.radiusKm ?? branch?.deliveryRadiusKm ?? settings?.deliveryRadiusKm);
+    const serviceability = deliveryServiceability({
+      fulfilmentType: data.fulfilmentType,
+      merchant: { latitude: originLatitude, longitude: originLongitude },
+      customer: { latitude: data.address.latitude, longitude: data.address.longitude },
+      deliveryRadiusKm: radiusKm,
+    });
+    if (serviceability.isWithinDeliveryRadius === false) {
         return {
           ok: false as const,
           status: 400,
           body: {
-            error: "Delivery is currently available only within the configured delivery area. You may choose pickup or contact the business.",
+            error: "This location is outside this business's delivery area.",
           },
         };
-      }
     }
     const minimumOrder = money(branch?.minimumOrderAmount ?? settings?.minimumOrderAmount ?? zone?.minimumOrderAmount);
     if (minimumOrder && subtotal < minimumOrder) {
@@ -141,11 +148,15 @@ export async function createOrder(input: unknown) {
   const taxableSubtotal = items.filter((item) => item.product.taxable).reduce((sum, item) => sum + item.lineTotal, 0);
   const taxAmount = Math.max(0, (taxableSubtotal - discountAmount) * (money(settings?.taxPercentage ?? 0) / 100));
   const totalAmount = subtotal - discountAmount + taxAmount + deliveryCharge;
-  const today = new Date().toISOString().slice(0, 10).replaceAll("-", "");
-  const countToday = await prisma.order.count({ where: { companyId: company.id, placedAt: { gte: new Date(`${today.slice(0, 4)}-${today.slice(4, 6)}-${today.slice(6, 8)}T00:00:00.000Z`) } } });
-  const orderNumber = `SS-ORD-${today}-${String(countToday + 1).padStart(4, "0")}`;
+  const today = orderSequenceDate();
 
   const order = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const counter = await tx.orderSequence.upsert({
+      where: { companyId_sequenceDate: { companyId: company.id, sequenceDate: today } },
+      create: { companyId: company.id, sequenceDate: today, sequence: 1 },
+      update: { sequence: { increment: 1 } },
+    });
+    const orderNumber = merchantOrderNumber(company.orderPrefix, today, counter.sequence, company.name);
     await reserveTrackedInventory(tx, items.map((item) => ({ product: item.product, quantity: item.quantity })));
 
     const customer = await tx.customer.upsert({

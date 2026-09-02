@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/core/database/prisma";
-import { formatMoney } from "@/modules/wave1/utils";
+import { formatCommerceMoney } from "@/modules/wave1/utils";
 import { StickyCartSummary } from "../../components/cart";
 import { AssetImage } from "../../components/asset-image";
 import { normalizePublicAssetPath } from "@/modules/wave1/assets";
@@ -117,7 +117,7 @@ export default async function OrderMenuPage({ params, searchParams }: { params: 
                       <div className="flex min-h-64 flex-col p-4">
                         <div className="flex items-start gap-2"><Link href={`/order/${orderingSlug}/product/${p.slug}`} className="mr-auto text-lg font-semibold">{p.name}</Link>{p.bestseller && <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">Bestseller</span>}{p.vegetarian && <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-800">Veg</span>}</div>
                         <p className="mt-1 line-clamp-2 min-h-10 text-sm text-slate-500">{p.shortDescription}</p>
-                        <div className="mt-3 flex items-center justify-between gap-3"><p className="font-semibold">{hasMeaningfulVariants(p.variants) ? `From ${formatMoney(fromPrice)}` : formatMoney(fromPrice)}</p><p className={`text-sm font-semibold ${state === "AVAILABLE" ? "text-emerald-700" : "text-amber-700"}`}>{state === "SOLD_OUT" ? "Sold Out" : state === "UNAVAILABLE" ? "Unavailable" : "Available"}</p></div>
+                        <div className="mt-3 flex items-center justify-between gap-3"><p className="font-semibold">{hasMeaningfulVariants(p.variants) ? `From ${formatCommerceMoney(fromPrice, company.currencyCode)}` : formatCommerceMoney(fromPrice, company.currencyCode)}</p><p className={`text-sm font-semibold ${state === "AVAILABLE" ? "text-emerald-700" : "text-amber-700"}`}>{state === "SOLD_OUT" ? "Sold Out" : state === "UNAVAILABLE" ? "Unavailable" : "Available"}</p></div>
                         <Link href={`/order/${orderingSlug}/product/${p.slug}`} className={`mt-auto inline-flex w-full justify-center rounded-md px-4 py-3 text-sm font-semibold ${state === "AVAILABLE" ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-500"}`}>{state === "AVAILABLE" ? (hasMeaningfulVariants(p.variants) || p.addOnGroups.length ? "Customize" : "Add") : state === "SOLD_OUT" ? "Sold Out" : "Unavailable"}</Link>
                       </div>
                     </article>
@@ -129,7 +129,7 @@ export default async function OrderMenuPage({ params, searchParams }: { params: 
         })}
         <footer className="mt-10 border-t border-slate-200 py-6 text-center text-sm text-slate-500"><p>Powered by SettleSmart Commerce™</p>{company.phone && <p className="mt-1">{company.phone}</p>}</footer>
       </div>
-      <StickyCartSummary slug={orderingSlug} />
+      <StickyCartSummary slug={orderingSlug} currencyCode={company.currencyCode} />
     </main>
   );
 }

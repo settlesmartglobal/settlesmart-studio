@@ -271,7 +271,11 @@ model Company {
   preferredLanguage    String?
   defaultPlatformsJson Json?
   country              String?
+  currencyCode         String       @default("AED")
+  orderPrefix          String       @default("SS")
+  region               String?
   city                 String?
+  postalCode           String?
   address              String?
   latitude             Decimal?     @db.Decimal(10, 7)
   longitude            Decimal?     @db.Decimal(10, 7)
@@ -300,6 +304,7 @@ model Company {
   riders             Rider[]
   promotions         Promotion[]
   notificationEvents NotificationEvent[]
+  orderSequences     OrderSequence[]
   campaigns          StudioCampaign[]
   mediaAssets        MediaAsset[]
   campaignInputs     CampaignInput[]
@@ -313,6 +318,19 @@ model Company {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model OrderSequence {
+  id           String   @id @default(uuid())
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sequenceDate String
+  sequence     Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([companyId, sequenceDate])
+  @@index([companyId])
 }
 
 model CommerceBusinessSettings {
@@ -355,7 +373,10 @@ model Branch {
   name                  String
   code                  String
   address               String?
+  country               String?
+  region                String?
   city                  String?
+  postalCode            String?
   phone                 String?
   whatsapp              String?
   email                 String?
