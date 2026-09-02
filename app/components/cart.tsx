@@ -119,15 +119,19 @@ export function CheckoutForm({ slug, merchantLocation }: { slug: string; merchan
   function deliveryRadiusFor(area: string) {
     return Number(serviceAreas.find((serviceArea) => serviceArea.name === area)?.radiusKm ?? defaultRadiusKm);
   }
-  function locationOutsideDeliveryArea(latitude: number, longitude: number, area: string) {
+  function deliveryLocationServiceability(latitude: unknown, longitude: unknown, area: string) {
     const radiusKm = deliveryRadiusFor(area);
-    const serviceability = deliveryServiceability({
+    return deliveryServiceability({
       fulfilmentType: "DELIVERY",
       merchant: { latitude: merchantLocation.latitude, longitude: merchantLocation.longitude },
       customer: { latitude, longitude },
       deliveryRadiusKm: radiusKm,
     });
-    return serviceability.isWithinDeliveryRadius === false;
+  }
+  function deliveryServiceabilityMessage(serviceability: ReturnType<typeof deliveryServiceability>) {
+    if (serviceability.failureReason === "OUTSIDE_DELIVERY_RADIUS") return "Your current location is outside this business's delivery area.";
+    if (serviceability.failureReason === "CUSTOMER_LOCATION_MISSING") return "Please use your current location to confirm that this address is within the delivery area.";
+    return "Delivery is temporarily unavailable because this business has not configured its delivery location.";
   }
   function useCurrentLocation() {
     setLocationStatus("");
@@ -142,10 +146,11 @@ export function CheckoutForm({ slug, merchantLocation }: { slug: string; merchan
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        if (details.lastSelectedFulfilmentType === "DELIVERY" && locationOutsideDeliveryArea(pos.coords.latitude, pos.coords.longitude, details.area)) {
+        const serviceability = deliveryLocationServiceability(pos.coords.latitude, pos.coords.longitude, details.area);
+        if (details.lastSelectedFulfilmentType === "DELIVERY" && serviceability.isWithinDeliveryRadius !== true) {
           update("latitude", "");
           update("longitude", "");
-          setLocationStatus("This location is outside this business's delivery area.");
+          setLocationStatus(deliveryServiceabilityMessage(serviceability));
           setLocating(false);
           return;
         }
@@ -166,7 +171,9 @@ export function CheckoutForm({ slug, merchantLocation }: { slug: string; merchan
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 },
     );
   }
-  return <form className="grid gap-4" onSubmit={async (event) => { event.preventDefault(); setError(""); const form = Object.fromEntries(new FormData(event.currentTarget)); const latitude = Number(form.latitude); const longitude = Number(form.longitude); if (form.fulfilmentType === "DELIVERY" && form.latitude !== "" && form.longitude !== "" && locationOutsideDeliveryArea(latitude, longitude, String(form.area))) { setError("This location is outside this business's delivery area."); return; } const items = JSON.parse(sessionStorage.getItem(key(slug)) || "[]") as CartItem[]; const idempotencyKey = sessionStorage.getItem(`${key(slug)}-checkout`) || crypto.randomUUID(); sessionStorage.setItem(`${key(slug)}-checkout`, idempotencyKey); const address = { doorOrFlatNumber: form.doorOrFlatNumber, buildingName: form.buildingName, area: form.area, city: form.city, landmark: form.landmark, latitude: form.latitude, longitude: form.longitude, deliveryInstructions: form.deliveryInstructions }; const response = await fetch("/api/public/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderingSlug: slug, customer: { name: form.customerName, mobile: form.mobileNumber, email: form.email, marketingConsent: Boolean(form.marketingConsent), whatsappOperationalConsent: Boolean(form.whatsappOperationalConsent) }, address, fulfilmentType: form.fulfilmentType, paymentMethod: form.paymentMethod, promotionCode: form.promotionCode, idempotencyKey, specialInstructions: form.deliveryInstructions, items: items.map((i) => ({ productId: i.productId, quantity: i.quantity, variantId: i.variantId, addOnIds: i.addOns?.map((addOn) => addOn.id) ?? [], instructions: i.instructions })) }) }); const json = await response.json(); if (!response.ok) { setError(json.error ?? "Checkout failed"); return; } const nextDetails = { customerName: String(form.customerName || details.customerName), mobileNumber: String(form.mobileNumber || details.mobileNumber), doorOrFlatNumber: String(form.doorOrFlatNumber || details.doorOrFlatNumber), buildingName: String(form.buildingName || details.buildingName), area: String(form.area || details.area), city: String(form.city || details.city), landmark: String(form.landmark || details.landmark), deliveryInstructions: String(form.deliveryInstructions || details.deliveryInstructions), latitude: String(form.latitude || details.latitude), longitude: String(form.longitude || details.longitude), lastSelectedFulfilmentType: String(form.fulfilmentType || details.lastSelectedFulfilmentType) }; localStorage.setItem(detailsKey(slug), JSON.stringify(nextDetails)); sessionStorage.removeItem(key(slug)); sessionStorage.removeItem(`${key(slug)}-checkout`); location.href = `/order/${slug}/confirmation/${json.orderNumber}?token=${json.trackingToken}`; }}>
+  const currentDeliveryServiceability = deliveryLocationServiceability(details.latitude, details.longitude, details.area);
+  const deliveryBlocked = details.lastSelectedFulfilmentType === "DELIVERY" && currentDeliveryServiceability.isWithinDeliveryRadius !== true;
+  return <form className="grid gap-4" onSubmit={async (event) => { event.preventDefault(); setError(""); const form = Object.fromEntries(new FormData(event.currentTarget)); const serviceability = deliveryLocationServiceability(form.latitude, form.longitude, String(form.area)); if (form.fulfilmentType === "DELIVERY" && serviceability.isWithinDeliveryRadius !== true) { setError(deliveryServiceabilityMessage(serviceability)); return; } const items = JSON.parse(sessionStorage.getItem(key(slug)) || "[]") as CartItem[]; const idempotencyKey = sessionStorage.getItem(`${key(slug)}-checkout`) || crypto.randomUUID(); sessionStorage.setItem(`${key(slug)}-checkout`, idempotencyKey); const address = { doorOrFlatNumber: form.doorOrFlatNumber, buildingName: form.buildingName, area: form.area, city: form.city, landmark: form.landmark, latitude: form.latitude, longitude: form.longitude, deliveryInstructions: form.deliveryInstructions }; const response = await fetch("/api/public/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderingSlug: slug, customer: { name: form.customerName, mobile: form.mobileNumber, email: form.email, marketingConsent: Boolean(form.marketingConsent), whatsappOperationalConsent: Boolean(form.whatsappOperationalConsent) }, address, fulfilmentType: form.fulfilmentType, paymentMethod: form.paymentMethod, promotionCode: form.promotionCode, idempotencyKey, specialInstructions: form.deliveryInstructions, items: items.map((i) => ({ productId: i.productId, quantity: i.quantity, variantId: i.variantId, addOnIds: i.addOns?.map((addOn) => addOn.id) ?? [], instructions: i.instructions })) }) }); const json = await response.json(); if (!response.ok) { setError(json.error ?? "Checkout failed"); return; } const nextDetails = { customerName: String(form.customerName || details.customerName), mobileNumber: String(form.mobileNumber || details.mobileNumber), doorOrFlatNumber: String(form.doorOrFlatNumber || details.doorOrFlatNumber), buildingName: String(form.buildingName || details.buildingName), area: String(form.area || details.area), city: String(form.city || details.city), landmark: String(form.landmark || details.landmark), deliveryInstructions: String(form.deliveryInstructions || details.deliveryInstructions), latitude: String(form.latitude || details.latitude), longitude: String(form.longitude || details.longitude), lastSelectedFulfilmentType: String(form.fulfilmentType || details.lastSelectedFulfilmentType) }; localStorage.setItem(detailsKey(slug), JSON.stringify(nextDetails)); sessionStorage.removeItem(key(slug)); sessionStorage.removeItem(`${key(slug)}-checkout`); location.href = `/order/${slug}/confirmation/${json.orderNumber}?token=${json.trackingToken}`; }}>
     {(details.customerName || details.mobileNumber) && <button type="button" className="w-fit rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold" onClick={() => setDetails(emptyDetails)}>Use Different Details</button>}
     <section className="grid gap-3 rounded-md border border-slate-200 p-4"><h2 className="font-semibold">Customer Details</h2>
     <input name="customerName" required placeholder="Customer name" value={details.customerName} onChange={(event) => update("customerName", event.target.value)} className="rounded-md border border-slate-200 px-3 py-2" />
@@ -191,6 +198,7 @@ export function CheckoutForm({ slug, merchantLocation }: { slug: string; merchan
     <label className="flex gap-2 text-sm"><input name="whatsappOperationalConsent" type="checkbox" />Send me order and delivery updates on WhatsApp.</label>
     <label className="flex gap-2 text-sm"><input name="marketingConsent" type="checkbox" />Marketing consent</label>
     </section>
-    <button className="rounded-md bg-slate-950 px-4 py-3 text-sm font-semibold text-white">Place order</button>{error && <p className="text-sm text-red-600">{error}</p>}
+    {deliveryBlocked && <p className="text-sm text-red-600">{deliveryServiceabilityMessage(currentDeliveryServiceability)}</p>}
+    <button disabled={deliveryBlocked} className="rounded-md bg-slate-950 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600">Place order</button>{error && <p className="text-sm text-red-600">{error}</p>}
   </form>;
 }

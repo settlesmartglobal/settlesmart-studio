@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { buildCartLineId, toggleGroupedSelection, upsertCartLine } from "../src/modules/wave1/cart-state.ts";
 import { isAddOnCompatibleWithProduct } from "../src/modules/wave1/commerce-rules.ts";
-import { formatCommerceMoney } from "../src/modules/wave1/utils.ts";
+import { formatCommerceMoney, haversineDistanceKm } from "../src/modules/wave1/utils.ts";
 
 const schema = readFileSync("prisma/schema.prisma", "utf8");
 const utils = readFileSync("src/modules/wave1/utils.ts", "utf8");
@@ -66,7 +66,7 @@ assert.ok(!cart.includes("areaCityMap"), "checkout does not hard-code Dubai area
 assert.ok(cart.includes("merchantLocation.serviceAreas") && cart.includes("Select service area"), "checkout areas derive from merchant delivery zones");
 assert.ok(cart.includes("merchantLocation.city"), "checkout city derives from merchant configuration");
 assert.ok(!cart.includes('name="country"') && !cart.includes('name="postalCode"') && !cart.includes('name="region"'), "customer checkout hides country, postal code and region fields");
-assert.ok(cart.includes("deliveryServiceability") && cart.includes("This location is outside this business's delivery area."), "checkout validates browser geolocation with the shared serviceability helper before storing coordinates");
+assert.ok(cart.includes("deliveryServiceability") && cart.includes("Your current location is outside this business's delivery area.") && cart.includes("deliveryBlocked"), "checkout validates browser geolocation with the shared serviceability helper before storing coordinates");
 assert.ok(utils.includes('from === "READY" && to === "PAYMENT_COLLECTED"'), "pickup orders can collect payment once ready");
 assert.ok(cart.includes("variantId: i.variantId"), "checkout submits selected variant IDs");
 assert.ok(cart.includes("addOnIds: i.addOns?.map"), "checkout submits selected add-on IDs");
@@ -118,6 +118,7 @@ assert.ok(seed.includes('name === "Chicken Biryani" ? 65 : price + 28'), "demo s
 assert.ok(seed.includes('name: "Regular"') && seed.includes("active: false"), "confusing Regular demo variant is preserved inactive");
 assert.ok(seed.includes('"Fresh Lime Soda": "/uploads/commerce-fresh-lime-soda.svg"'), "Fresh Lime Soda has a seeded image");
 assert.ok(seed.includes('"Choose Drink"') && seed.includes('multipleSelection: true, minSelections: 0, maxSelections: 3') && seed.includes('"Water Bottle"') && seed.includes('"Soda"'), "demo Choose Drink allows multiple drink selections");
+assert.ok(seed.includes("latitude: 25.2904") && seed.includes("longitude: 55.3894"), "Dubai Delights demo seed configures merchant and branch coordinates");
 assert.ok(liveRefresh.includes('useState<string | null>(null)') && liveRefresh.includes('"Last updated --:--:--"') && liveRefresh.includes('setLastUpdated(formatRefreshTime(new Date()))'), "LiveRefresh uses deterministic initial hydration text");
 assert.ok(notifications.includes("WHATSAPP_PROVIDER"), "WhatsApp provider selection is environment-driven");
 assert.ok(notifications.includes("commerce_payment_receipt"), "payment receipt template is mapped");
@@ -144,7 +145,8 @@ assert.ok(orderDetailPage.includes("Full Order Items") && orderDetailPage.includ
 assert.ok(orderDetailPage.includes("OrderActionButtons") && orderDetailPage.includes("PaymentRecordForm"), "order detail uses existing operational actions and payment workflow");
 assert.ok(orderDetailPage.includes("variantLabel(options.variant)") && orderDetailPage.includes("addOnLabel(addOn, order.company.currencyCode)") && orderDetailPage.includes("Special instructions"), "order detail exposes selected variant, modifiers and item instructions");
 assert.ok(orderDetailPage.includes("if (!companyId) notFound()") && orderDetailPage.includes("order.companyId !== companyId"), "order detail validates company ownership before rendering");
-assert.ok(orders.includes("Selected delivery area is not serviceable by this business.") && orders.includes("company.deliveryZones.find") && orders.includes("This location is outside this business's delivery area."), "checkout server enforces merchant service areas and delivery radius");
+assert.ok(orders.includes("Selected delivery area is not serviceable by this business.") && orders.includes("company.deliveryZones.find") && orders.includes("Sorry, this address is outside this business's delivery area."), "checkout server enforces merchant service areas and delivery radius");
+assert.ok(orders.includes("serviceability.isWithinDeliveryRadius !== true") && orders.includes("Please use your current location to confirm that this address is within the delivery area.") && orders.includes("Delivery is temporarily unavailable because this business has not configured its delivery location."), "delivery order creation fails closed when serviceability is outside or unavailable");
 assert.ok(orders.includes('data.fulfilmentType === "DELIVERY"') && !orders.includes('data.fulfilmentType === "PICKUP" && settings?.deliveryEnabled'), "pickup orders do not run delivery serviceability validation");
 assert.ok(orders.includes("deliveryServiceability"), "checkout/order validation reuses shared serviceability helper");
 assert.ok(orders.includes("orderSequence.upsert") && orders.includes("merchantOrderNumber(company.orderPrefix") && schema.includes("@@unique([companyId, sequenceDate])"), "merchant order numbers use an atomic per-company daily sequence");
@@ -152,7 +154,8 @@ assert.ok(orderNumbering.includes("normalizeOrderPrefix") && orderNumbering.incl
 assert.ok(commercePage.includes("CommerceOrderModal") && commercePage.includes("orderId") && commercePage.includes("closeHref") && commercePage.includes("scroll={false}"), "commerce order viewing opens an in-workspace modal that preserves URL context");
 assert.ok(commercePage.includes("Full Order Items") && commercePage.includes("Order Summary") && commercePage.includes("Customer") && commercePage.includes("variantLabel(options.variant)") && commercePage.includes("addOnLabel(addOn, currencyCode)") && commercePage.includes("formatCommerceMoney"), "commerce modal displays full items, modifiers and customer details in merchant currency");
 assert.ok(commercePage.includes("ServiceabilityPanel") && commercePage.includes("Distance from restaurant") && commercePage.includes("Delivery radius") && commercePage.includes("Within Delivery Area"), "orders modal/card show delivery distance and radius");
-assert.ok(commercePage.includes('blockedActions: Record<string, string>') && commercePage.includes('ACCEPTED: "Outside configured delivery area"'), "outside-radius delivery cannot be accepted from Orders workflow");
+assert.ok(commercePage.includes('blockedActions: Record<string, string>') && commercePage.includes('ACCEPTED: serviceability.isWithinDeliveryRadius === false ? "Outside configured delivery area" : "Delivery serviceability cannot be verified"'), "outside or unverified delivery cannot be accepted from Orders workflow");
+assert.ok(commercePage.includes("This order cannot be accepted until delivery eligibility is confirmed.") && commercePage.includes('serviceability.isWithinDeliveryRadius === true ? "border-emerald'), "unavailable distance renders as a blocking warning instead of green success");
 assert.ok(commercePage.includes('mode === "delivery"') && commercePage.includes("Delivery order detail") && commercePage.includes("Close"), "delivery order modal is read-only");
 assert.ok(!commercePage.includes("Studio Media") && !commercePage.includes("Public Ordering"), "Commerce header removes unfinished Studio media and duplicate ordering entry points");
 assert.ok(!commercePage.includes("/orders/${order.id}?companyId=${order.companyId}") && commercePage.includes("commerceHref({ section: \"kitchen\", orderId: order.id })"), "commerce order list and kitchen tickets stay inside Commerce workspace");
@@ -185,7 +188,14 @@ assert.ok(!riderApiBlock.slice(riderApiBlock.indexOf("items: order.items"), ride
 assert.ok(utils.includes('fulfilmentType === "PICKUP"') && utils.includes('["RIDER_ASSIGNED", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"].includes(to)'), "pickup workflow does not require rider delivery statuses");
 assert.ok(serviceability.includes('input.fulfilmentType !== "DELIVERY"') && serviceability.includes("isWithinDeliveryRadius: true"), "pickup is exempt from delivery distance validation");
 assert.ok(serviceability.includes("haversineDistanceKm") && serviceability.includes("distanceKm <= deliveryRadiusKm"), "shared serviceability helper computes inside/outside radius");
+assert.ok(serviceability.includes("MERCHANT_LOCATION_MISSING") && serviceability.includes("CUSTOMER_LOCATION_MISSING") && serviceability.includes("DELIVERY_RADIUS_MISSING") && serviceability.includes("OUTSIDE_DELIVERY_RADIUS"), "shared serviceability helper explains every fail-closed state");
 assert.ok(serviceability.includes("distanceKm: null") && serviceability.includes("isWithinDeliveryRadius: null"), "legacy orders without coordinates show unavailable distance");
+assert.ok(orderTransitions.includes('input.status === "ACCEPTED"') && orderTransitions.includes("deliveryServiceability") && orderTransitions.includes("serviceability.isWithinDeliveryRadius !== true"), "server transition blocks PENDING to ACCEPTED when delivery serviceability cannot be confirmed");
+const indiaToDubaiKm = haversineDistanceKm({ latitude: 25.2904, longitude: 55.3894 }, { latitude: 10.9505090, longitude: 78.0981146 });
+assert.ok(indiaToDubaiKm > 2500, "India current-location coordinates are far outside Dubai Delights 5 km radius");
+const nearDubaiKm = haversineDistanceKm({ latitude: 25.2904, longitude: 55.3894 }, { latitude: 25.291, longitude: 55.39 });
+assert.ok(nearDubaiKm <= 5, "nearby Dubai customer coordinates are allowed within 5 km");
+assert.ok(serviceability.includes('input.fulfilmentType !== "DELIVERY"') && serviceability.includes("isWithinDeliveryRadius: true"), "pickup bypasses delivery radius validation");
 assert.equal(formatCommerceMoney(32, "AED"), "AED 32.00", "Dubai merchant renders AED");
 assert.equal(formatCommerceMoney(350, "INR"), "₹ 350.00", "India merchant renders INR rupee symbol");
 assert.equal(formatCommerceMoney(3.5, "OMR"), "OMR 3.500", "OMR renders three decimal places");

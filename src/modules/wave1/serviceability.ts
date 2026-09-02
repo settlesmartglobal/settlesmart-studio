@@ -17,15 +17,21 @@ function numericCoordinate(value: unknown) {
 
 export function deliveryServiceability(input: ServiceabilityInput) {
   if (input.fulfilmentType !== "DELIVERY") {
-    return { required: false, distanceKm: null, deliveryRadiusKm: null, isWithinDeliveryRadius: true };
+    return { required: false, distanceKm: null, deliveryRadiusKm: null, isWithinDeliveryRadius: true, failureReason: null };
   }
   const originLatitude = numericCoordinate(input.merchant.latitude) ?? numericCoordinate(input.branch?.latitude);
   const originLongitude = numericCoordinate(input.merchant.longitude) ?? numericCoordinate(input.branch?.longitude);
   const customerLatitude = numericCoordinate(input.customer.latitude);
   const customerLongitude = numericCoordinate(input.customer.longitude);
   const deliveryRadiusKm = money(input.deliveryRadiusKm as string | number | null | undefined);
-  if (originLatitude == null || originLongitude == null || customerLatitude == null || customerLongitude == null || !deliveryRadiusKm) {
-    return { required: true, distanceKm: null, deliveryRadiusKm: deliveryRadiusKm || null, isWithinDeliveryRadius: null };
+  if (originLatitude == null || originLongitude == null) {
+    return { required: true, distanceKm: null, deliveryRadiusKm: deliveryRadiusKm || null, isWithinDeliveryRadius: null, failureReason: "MERCHANT_LOCATION_MISSING" };
+  }
+  if (customerLatitude == null || customerLongitude == null) {
+    return { required: true, distanceKm: null, deliveryRadiusKm: deliveryRadiusKm || null, isWithinDeliveryRadius: null, failureReason: "CUSTOMER_LOCATION_MISSING" };
+  }
+  if (!deliveryRadiusKm) {
+    return { required: true, distanceKm: null, deliveryRadiusKm: null, isWithinDeliveryRadius: null, failureReason: "DELIVERY_RADIUS_MISSING" };
   }
   const distanceKm = haversineDistanceKm(
     { latitude: originLatitude, longitude: originLongitude },
@@ -36,5 +42,6 @@ export function deliveryServiceability(input: ServiceabilityInput) {
     distanceKm,
     deliveryRadiusKm,
     isWithinDeliveryRadius: distanceKm <= deliveryRadiusKm,
+    failureReason: distanceKm <= deliveryRadiusKm ? null : "OUTSIDE_DELIVERY_RADIUS",
   };
 }

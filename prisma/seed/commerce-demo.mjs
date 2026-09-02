@@ -125,7 +125,7 @@ async function main() {
 
   const company = await prisma.company.upsert({
     where: { slug: "dubai-delights" },
-    update: { commerceEnabled: true, orderingSlug: "dubai-delights", country: "United Arab Emirates", currencyCode: "AED", orderPrefix: "DD", region: "Dubai", city: "Dubai", postalCode: "" },
+    update: { commerceEnabled: true, orderingSlug: "dubai-delights", country: "United Arab Emirates", currencyCode: "AED", orderPrefix: "DD", region: "Dubai", city: "Dubai", postalCode: "", latitude: 25.2904, longitude: 55.3894 },
     create: {
       name: "Dubai Delights Restaurant",
       slug: "dubai-delights",
@@ -138,6 +138,8 @@ async function main() {
       city: "Dubai",
       postalCode: "",
       address: "Al Qusais, Dubai, United Arab Emirates",
+      latitude: 25.2904,
+      longitude: 55.3894,
       phone: "+971500000001",
       whatsapp: "+971500000001",
       email: "orders@dubaidelights.test",
@@ -178,8 +180,8 @@ async function main() {
 
   const branch = await prisma.branch.upsert({
     where: { companyId_code: { companyId: company.id, code: "DD-AQ-01" } },
-    update: { country: "United Arab Emirates", region: "Dubai", city: "Dubai", postalCode: "" },
-    create: { companyId: company.id, name: "Dubai Delights - Al Qusais", code: "DD-AQ-01", address: "Al Qusais, Dubai, United Arab Emirates", country: "United Arab Emirates", region: "Dubai", city: "Dubai", postalCode: "", phone: "+971500000001", whatsapp: "+971500000001", email: "orders@dubaidelights.test", deliveryRadiusKm: 5, minimumOrderAmount: 25, deliveryFee: 5, freeDeliveryThreshold: 75, preparationMinutes: 30 },
+    update: { country: "United Arab Emirates", region: "Dubai", city: "Dubai", postalCode: "", latitude: 25.2904, longitude: 55.3894 },
+    create: { companyId: company.id, name: "Dubai Delights - Al Qusais", code: "DD-AQ-01", address: "Al Qusais, Dubai, United Arab Emirates", country: "United Arab Emirates", region: "Dubai", city: "Dubai", postalCode: "", latitude: 25.2904, longitude: 55.3894, phone: "+971500000001", whatsapp: "+971500000001", email: "orders@dubaidelights.test", deliveryRadiusKm: 5, minimumOrderAmount: 25, deliveryFee: 5, freeDeliveryThreshold: 75, preparationMinutes: 30 },
   });
   for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek += 1) {
     await prisma.branchOperatingHours.upsert({ where: { branchId_dayOfWeek: { branchId: branch.id, dayOfWeek } }, update: { openTime: "11:00", closeTime: "23:30", closed: false }, create: { branchId: branch.id, dayOfWeek, openTime: "11:00", closeTime: "23:30", closed: false } });

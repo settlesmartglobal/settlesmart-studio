@@ -10,6 +10,12 @@ import { isAddOnCompatibleWithProduct } from "./commerce-rules";
 import { merchantOrderNumber, orderSequenceDate } from "./order-numbering";
 import { deliveryServiceability } from "./serviceability";
 
+function deliveryServiceabilityError(serviceability: ReturnType<typeof deliveryServiceability>) {
+  if (serviceability.failureReason === "CUSTOMER_LOCATION_MISSING") return "Please use your current location to confirm that this address is within the delivery area.";
+  if (serviceability.failureReason === "OUTSIDE_DELIVERY_RADIUS") return "Sorry, this address is outside this business's delivery area.";
+  return "Delivery is temporarily unavailable because this business has not configured its delivery location.";
+}
+
 function localDayAndTime(timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date());
   const weekday = String(parts.find((part) => part.type === "weekday")?.value ?? "Sun");
@@ -110,14 +116,14 @@ export async function createOrder(input: unknown) {
       customer: { latitude: data.address.latitude, longitude: data.address.longitude },
       deliveryRadiusKm: radiusKm,
     });
-    if (serviceability.isWithinDeliveryRadius === false) {
-        return {
-          ok: false as const,
-          status: 400,
-          body: {
-            error: "This location is outside this business's delivery area.",
-          },
-        };
+    if (serviceability.isWithinDeliveryRadius !== true) {
+      return {
+        ok: false as const,
+        status: 400,
+        body: {
+          error: deliveryServiceabilityError(serviceability),
+        },
+      };
     }
     const minimumOrder = money(branch?.minimumOrderAmount ?? settings?.minimumOrderAmount ?? zone?.minimumOrderAmount);
     if (minimumOrder && subtotal < minimumOrder) {

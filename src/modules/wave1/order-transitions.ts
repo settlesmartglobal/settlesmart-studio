@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { appUrl, canTransition, formatCommerceMoney, money, statusTimestamp } from "./utils";
 import { notifyOrderEvent, receiptTemplateVariables } from "./notifications";
 import { RESTOCKABLE_ORDER_STATUSES, restoreTrackedInventoryForOrder } from "./inventory";
+import { deliveryServiceability } from "./serviceability";
 
 type TransitionInput = {
   orderId: string;
@@ -35,11 +36,35 @@ function paymentLabel(method: PaymentMethod) {
   return method.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function deliveryServiceabilityTransitionError(serviceability: ReturnType<typeof deliveryServiceability>) {
+  if (serviceability.failureReason === "OUTSIDE_DELIVERY_RADIUS") return "Sorry, this address is outside this business's delivery area.";
+  if (serviceability.failureReason === "CUSTOMER_LOCATION_MISSING") return "Please use your current location to confirm that this address is within the delivery area.";
+  return "Delivery serviceability cannot be verified for this order.";
+}
+
 export async function transitionOrder(prisma: PrismaClient, input: TransitionInput) {
-  const existing = await prisma.order.findUnique({ where: { id: input.orderId }, include: { customer: true, rider: true, company: { include: { commerceSettings: true } } } });
+  const existing = await prisma.order.findUnique({ where: { id: input.orderId }, include: { customer: true, rider: true, branch: true, company: { include: { commerceSettings: true, deliveryZones: { where: { active: true } } } } } });
   if (!existing) return { ok: false as const, status: 404, body: { error: "Order not found" } };
   if (!canTransition(existing.status, input.status, existing.fulfilmentType)) {
     return { ok: false as const, status: 400, body: { error: `Order cannot move from ${existing.status} to ${input.status}` } };
+  }
+  if (existing.status === "PENDING" && input.status === "ACCEPTED" && existing.fulfilmentType === "DELIVERY") {
+    const address = existing.deliveryAddressSnapshotJson && typeof existing.deliveryAddressSnapshotJson === "object" ? existing.deliveryAddressSnapshotJson as Record<string, unknown> : {};
+    const zone = existing.company.deliveryZones.find((candidate) => candidate.name === address.area);
+    if (existing.company.deliveryZones.length > 0 && !zone) {
+      return { ok: false as const, status: 400, body: { error: "Selected delivery area is not serviceable by this business." } };
+    }
+    const radiusKm = zone?.radiusKm ?? existing.branch?.deliveryRadiusKm ?? existing.company.commerceSettings?.deliveryRadiusKm;
+    const serviceability = deliveryServiceability({
+      fulfilmentType: existing.fulfilmentType,
+      merchant: { latitude: existing.company.latitude, longitude: existing.company.longitude },
+      branch: { latitude: existing.branch?.latitude, longitude: existing.branch?.longitude },
+      customer: { latitude: existing.customerLatitude ?? address.latitude, longitude: existing.customerLongitude ?? address.longitude },
+      deliveryRadiusKm: radiusKm,
+    });
+    if (serviceability.isWithinDeliveryRadius !== true) {
+      return { ok: false as const, status: 400, body: { error: deliveryServiceabilityTransitionError(serviceability) } };
+    }
   }
   if (["REJECTED", "CANCELLED"].includes(input.status) && !input.reason?.trim()) {
     return { ok: false as const, status: 400, body: { error: "A reason is required." } };
